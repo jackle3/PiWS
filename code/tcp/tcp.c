@@ -75,7 +75,7 @@ struct tcp_connection *tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server
 //         return -1;
 
 //     trace("Sending SYN...\n");
-//     nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+//     nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
 //     trace("SYN sent\n");
 //     tcp->state = TCP_SYN_SENT;
 //     return 0;
@@ -121,7 +121,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
             if (rcp_datagram_serialize(&syn, buffer, RCP_TOTAL_SIZE) >= 0) {
                 trace("[%s] Sending initial SYN with seq=%d to NRF addr %x...\n",
                       tcp->is_server ? "server" : "client", syn.header.seqno, tcp->remote_addr);
-                nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
                 tcp->state = TCP_SYN_SENT;
             }
         }
@@ -161,7 +161,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
                         trace("[%s] Sending SYN-ACK with seq=%d, ack=%d to %x...\n",
                               tcp->is_server ? "server" : "client", synack.header.seqno,
                               synack.header.ackno, tcp->remote_addr);
-                        nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                        nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
                         tcp->sender->next_seqno++;  // Increment after sending SYN-ACK
                         tcp->state = TCP_SYN_RECEIVED;
                     }
@@ -183,7 +183,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
                 if (rcp_datagram_serialize(&syn, buffer, RCP_TOTAL_SIZE) >= 0) {
                     trace("[%s] Resending SYN with seq=%d to %x...\n",
                           tcp->is_server ? "server" : "client", syn.header.seqno, tcp->remote_addr);
-                    nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
                 }
                 tcp->last_time = timer_get_usec();
             }
@@ -220,7 +220,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
                         trace("[%s] Sending ACK with seq=%d, ack=%d to %x...\n",
                               tcp->is_server ? "server" : "client", ack.header.seqno,
                               ack.header.ackno, tcp->remote_addr);
-                        nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                        nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
                         tcp->state = TCP_ESTABLISHED;
                     }
                 }
@@ -244,7 +244,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
                     trace("[%s] Resending SYN-ACK with seq=%d, ack=%d to %x...\n",
                           tcp->is_server ? "server" : "client", synack.header.seqno,
                           synack.header.ackno, tcp->remote_addr);
-                    nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
                 }
                 tcp->last_time = timer_get_usec();
             }
@@ -301,7 +301,7 @@ int tcp_send_segment(struct tcp_connection *tcp, const struct unacked_segment *s
 
     trace("[%s] Sending segment seq=%d to NRF addr %x...\n", tcp->is_server ? "server" : "client",
           seg->seqno, tcp->remote_addr);
-    nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
     sender_segment_sent(tcp->sender, seg, timer_get_usec());
 
     return 0;
@@ -344,7 +344,7 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack) {
 
     trace("[%s] Sending ACK for seq=%d to NRF addr %x\n", tcp->is_server ? "server" : "client",
           ack->ackno, tcp->remote_addr);
-    nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
 
     return 0;
 }
@@ -479,7 +479,7 @@ void tcp_close(struct tcp_connection *tcp) {
 
     uint8_t buffer[RCP_TOTAL_SIZE];
     if (rcp_datagram_serialize(&fin, buffer, RCP_TOTAL_SIZE) >= 0) {
-        nrf_send_ack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+        nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
     }
 
     tcp->state = TCP_CLOSED;

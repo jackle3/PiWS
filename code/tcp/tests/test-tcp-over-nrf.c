@@ -82,11 +82,11 @@ void notmain(void) {
     kmalloc_init(64);
 
     trace("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr, RCP_TOTAL_SIZE);
-    nrf_t *s = server_mk_ack(server_addr, RCP_TOTAL_SIZE);
+    nrf_t *s = server_mk_noack(server_addr, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable server config:\n", s);
 
     trace("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr, RCP_TOTAL_SIZE);
-    nrf_t *c = client_mk_ack(client_addr, RCP_TOTAL_SIZE);
+    nrf_t *c = client_mk_noack(client_addr, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable client config:\n", c);
 
     // Check compatibility
