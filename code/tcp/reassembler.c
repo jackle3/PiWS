@@ -1,9 +1,11 @@
 #include "reassembler.h"
+
 #include <string.h>
 
-struct reassembler* reassembler_init(struct bytestream *output, size_t capacity) {
+struct reassembler *reassembler_init(struct bytestream *output, size_t capacity) {
     struct reassembler *r = kmalloc(sizeof(struct reassembler));
-    if (!r) return NULL;
+    if (!r)
+        return NULL;
 
     r->output = output;
     r->next_seqno = 0;
@@ -29,11 +31,12 @@ static void try_write_in_order(struct reassembler *r) {
         // Look for segments that can be written to the output
         for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
             struct pending_segment *seg = &r->segments[i];
-            trace("Checking segment %u, seqno=%d, received=%d, next_seqno=%d\n", i, seg->seqno, seg->received, r->next_seqno);
+            // trace("Checking segment %u, seqno=%d, received=%d, next_seqno=%d\n", i, seg->seqno,
+            // seg->received, r->next_seqno);
             if (seg->received && seg->seqno == r->next_seqno) {
                 // Write this segment to the output
                 bytestream_write(r->output, seg->data, seg->len);
-                
+
                 // Update next expected sequence number
                 r->next_seqno++;
                 r->bytes_pending -= seg->len;
@@ -41,7 +44,7 @@ static void try_write_in_order(struct reassembler *r) {
                 // Free segment resources
                 seg->data = NULL;
                 seg->received = false;
-                
+
                 progress = true;
                 break;
             }
@@ -49,18 +52,22 @@ static void try_write_in_order(struct reassembler *r) {
     } while (progress);
 }
 
-size_t reassembler_insert(struct reassembler *r, const uint8_t *data, 
-                         size_t len, uint16_t seqno, bool is_last) {
-    if (!r || !data || len == 0) return 0;
+size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len, uint16_t seqno,
+                          bool is_last) {
+    if (!r || !data || len == 0)
+        return 0;
 
-    trace("Inserting segment seq=%d, len=%u, is_last=%d, next_seqno=%d\n", seqno, len, is_last, r->next_seqno);
+    trace("Inserting segment seq=%d, len=%u, is_last=%d, next_seqno=%d\n", seqno, len, is_last,
+          r->next_seqno);
 
     // If this is an old segment we've already processed, ignore it
-    if (seqno < r->next_seqno) return 0;
+    if (seqno < r->next_seqno)
+        return 0;
 
     // Check if we have capacity for this segment
-    if (r->bytes_pending + len > r->capacity) return 0;
-    
+    if (r->bytes_pending + len > r->capacity)
+        return 0;
+
     trace("We have enough space, searching for a slot\n");
 
     // Find a slot for this segment
@@ -73,11 +80,13 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data,
         }
     }
 
-    if (!target) return 0;  // No space for new segments
+    if (!target)
+        return 0;  // No space for new segments
 
     // Allocate space for the segment data
     target->data = kmalloc(len);
-    if (!target->data) return 0;
+    if (!target->data)
+        return 0;
 
     // Store the segment
     memcpy(target->data, data, len);
@@ -92,23 +101,22 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data,
     return len;
 }
 
-uint16_t reassembler_next_seqno(const struct reassembler *r) {
-    return r ? r->next_seqno : 0;
-}
+uint16_t reassembler_next_seqno(const struct reassembler *r) { return r ? r->next_seqno : 0; }
 
-size_t reassembler_bytes_pending(const struct reassembler *r) {
-    return r ? r->bytes_pending : 0;
-}
+size_t reassembler_bytes_pending(const struct reassembler *r) { return r ? r->bytes_pending : 0; }
 
 bool reassembler_is_complete(const struct reassembler *r) {
-    if (!r) return false;
+    if (!r)
+        return false;
 
     // Check if we have any pending segments
-    if (r->bytes_pending > 0) return false;
+    if (r->bytes_pending > 0)
+        return false;
 
     // Check if all segments have been processed
     for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-        if (r->segments[i].received) return false;
+        if (r->segments[i].received)
+            return false;
     }
 
     return true;
