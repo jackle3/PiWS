@@ -37,6 +37,16 @@ int receiver_process_segment(struct receiver *r, const struct rcp_datagram *dgra
         return -1;
     }
 
+    // If this is a retransmission of an already processed segment
+    // (sequence number is less than what we expect next),
+    // we should still generate an ACK to handle the case of lost ACKs
+    trace("[REASM] Received segment seq=%d, next_seqno=%d\n", dgram->header.seqno,
+          reassembler_next_seqno(r->reasm));
+    if (dgram->header.seqno < reassembler_next_seqno(r->reasm)) {
+        trace("Received retransmission of already processed segment seq=%d\n", dgram->header.seqno);
+        return 1;  // Return 1 to indicate ACK should be sent but no new data
+    }
+
     // Insert segment into reassembler to be buffered and reassembled
     size_t bytes_inserted =
         reassembler_insert(r->reasm, dgram->payload, dgram->header.payload_len, dgram->header.seqno,
@@ -44,6 +54,7 @@ int receiver_process_segment(struct receiver *r, const struct rcp_datagram *dgra
 
     // Return error if reassembler couldn't process segment
     if (bytes_inserted == 0) {
+        trace("Failed to insert segment into reassembler, buffer is full\n");
         return -1;
     }
 
@@ -54,7 +65,7 @@ int receiver_process_segment(struct receiver *r, const struct rcp_datagram *dgra
     if (r->window_size == 0)
         r->window_size = 1;  // Always allow at least one segment
 
-    return 0;
+    return 0;  // Return 0 to indicate new data was processed
 }
 
 void receiver_get_ack(const struct receiver *r, struct rcp_header *ack) {

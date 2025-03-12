@@ -7,7 +7,7 @@
 #define RCP_CLIENT_ADDR 0x1
 
 // Timeout values in microseconds
-#define RETRANSMIT_TIMEOUT_US 100000  // 100ms in microseconds
+#define RETRANSMIT_TIMEOUT_US (3 * 1000000)  // 3s in microseconds
 
 // Helper function to get RCP address from NRF address
 static uint8_t nrf_to_rcp_addr(uint32_t nrf_addr) {
@@ -288,8 +288,13 @@ int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram) {
     if (rcp_datagram_parse(dgram, buffer, RCP_TOTAL_SIZE) < 0)
         return -1;
 
-    trace("[%s] Received segment seq=%d from RCP addr %x\n", tcp->is_server ? "server" : "client",
-          dgram->header.seqno, dgram->header.src);
+    if (rcp_has_flag(&dgram->header, RCP_FLAG_ACK)) {
+        trace("[%s] Received ACK for seq=%d from RCP addr %x\n",
+              tcp->is_server ? "server" : "client", dgram->header.ackno, dgram->header.src);
+    } else {
+        trace("[%s] Received segment seq=%d from RCP addr %x\n",
+              tcp->is_server ? "server" : "client", dgram->header.seqno, dgram->header.src);
+    }
 
     return 0;
 }
@@ -333,6 +338,7 @@ int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us) {
             // Retransmit the segment
             if (tcp_send_segment(tcp, seg) == 0) {
                 segments_retransmitted++;
+                break;
             }
         }
     }

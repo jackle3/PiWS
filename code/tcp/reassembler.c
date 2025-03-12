@@ -3,70 +3,59 @@
 #include <string.h>
 
 struct reassembler *reassembler_init(struct bytestream *out_stream, size_t capacity) {
-    // Allocate space for reassembler struct
-    struct reassembler *r = kmalloc(sizeof(struct reassembler));
+    struct reassembler *r = kmalloc(sizeof(*r));
     if (!r)
         return NULL;
 
-    // Initialize fields
-    r->output = out_stream;  // Output stream to write reassembled data to
-    r->next_seqno = 0;       // Next expected sequence number
-    r->capacity = capacity;  // Max bytes that can be buffered
-    r->bytes_pending = 0;    // Current bytes buffered but not written
+    r->output = out_stream;
+    r->next_seqno = 0;
+    r->capacity = capacity;
+    r->bytes_pending = 0;
 
-    // Initialize all segment slots as empty
+    // Initialize all slots as empty
     memset(r->segments, 0, sizeof(r->segments));
     for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-        r->segments[i].data = NULL;       // No data buffer allocated yet
-        r->segments[i].received = false;  // Slot is available
+        r->segments[i].data = NULL;
+        r->segments[i].received = false;
     }
 
     return r;
 }
 
 static void try_write_in_order(struct reassembler *r) {
-    // Whether we wrote any segments to the output bytestream.
-    // If we didn't, we can stop flushing buffer.
-    bool wrote_something;
-
-    // Keep trying to write segments as long as there are segments in order (i.e. seqno matches
-    // next_seqno)
-    do {
-        wrote_something = false;
-
-        // Look through all slots for segments we can write
-        for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-            struct pending_segment *seg = &r->segments[i];
-
-            // If this slot is empty, ignore it
-            if (!seg->received)
-                continue;
-
-            // If this slot is not in order (i.e. seqno doesn't match what we want to flush next),
-            // ignore
-            if (seg->seqno != r->next_seqno)
-                continue;
-
-            // Found next segment in sequence - try writing to output stream
-            size_t written = bytestream_write(r->output, seg->data, seg->len);
-            if (written == 0) {
-                return;  // Output stream is full
-            }
-
-            // Successfully wrote segment, update state
-            r->next_seqno++;               // Advance expected sequence number
-            r->bytes_pending -= seg->len;  // Reduce pending byte count
-
-            // Free segment slot
-            seg->data = NULL;       // Free data buffer
-            seg->received = false;  // Mark slot as available
-
-            wrote_something = true;  // Note that we wrote a segment
-
-            // Found and wrote a segment, start over looking for next in sequence
-            break;
+    // Print current state of reassembler buffer
+    trace("[REASM] Buffer state (next_seqno=%d, bytes_pending=%d):\n", 
+          r->next_seqno, r->bytes_pending);
+    for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
+        if (r->segments[i].received) {
+            trace("  Slot %d: len=%d\n", i, r->segments[i].len);
         }
-    } while (wrote_something);
+    }
+
+    // Keep writing segments as long as the next expected one is available
+    while (r->segments[0].received) {
+        // Try to write the segment
+        size_t written = bytestream_write(r->output, r->segments[0].data, r->segments[0].len);
+        if (written == 0) {
+            return;  // Output stream is full
+        }
+
+        // Update state
+        r->next_seqno++;
+        r->bytes_pending -= r->segments[0].len;
+
+        // Free the slot
+        r->segments[0].data = NULL;
+        r->segments[0].received = false;
+
+        // Shift all segments left
+        for (size_t i = 0; i < MAX_PENDING_SEGMENTS - 1; i++) {
+            r->segments[i] = r->segments[i + 1];
+        }
+        // Clear the last slot
+        r->segments[MAX_PENDING_SEGMENTS - 1].data = NULL;
+        r->segments[MAX_PENDING_SEGMENTS - 1].received = false;
+    }
 }
 
 size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len, uint16_t seqno,
@@ -74,65 +63,58 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len
     if (!r || !data || len == 0)
         return 0;
 
-    // If this segment is too old (we've already processed past it), ignore it
-    if (seqno < r->next_seqno)
+    // If this segment is too old or too far ahead, ignore it
+    if (seqno < r->next_seqno || seqno >= r->next_seqno + MAX_PENDING_SEGMENTS) {
+        trace("[REASM] Ignoring segment seq=%d (window: %d-%d)\n", 
+              seqno, r->next_seqno, r->next_seqno + MAX_PENDING_SEGMENTS - 1);
         return 0;
+    }
+
+    // Calculate slot index for this sequence number
+    size_t slot_index = seqno - r->next_seqno;
+
+    // If this segment is already in our window, ignore it
+    if (r->segments[slot_index].received) {
+        trace("[REASM] Ignoring duplicate segment seq=%d\n", seqno);
+        return 0;
+    }
 
     // If this would put us over capacity, reject it
-    if (r->bytes_pending + len > r->capacity)
+    if (r->bytes_pending + len > r->capacity) {
+        trace("[REASM] Rejecting segment seq=%d: would exceed capacity\n", seqno);
         return 0;
-
-    // Find an empty slot (i.e. space in reassembler buffer) that we can use to store this segment
-    struct pending_segment *empty_slot = NULL;
-    for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-        struct pending_segment *seg = &r->segments[i];
-        if (!seg->received) {
-            empty_slot = seg;
-            break;
-        }
     }
-    if (!empty_slot)
-        return 0;  // No slots in reassembler buffer to store new segment
 
-    // Copy the segment data into the empty slot in the reassembler buffer
-    empty_slot->data = kmalloc(len);
-    if (!empty_slot->data)
+    // Store the segment in its designated slot
+    r->segments[slot_index].data = kmalloc(len);
+    if (!r->segments[slot_index].data)
         return 0;
-    memcpy(empty_slot->data, data, len);
-    empty_slot->len = len;
-    empty_slot->seqno = seqno;
-    empty_slot->received = true;
-    r->bytes_pending += len;  // Update the total bytes pending (add this segment's length)
+    
+    memcpy(r->segments[slot_index].data, data, len);
+    r->segments[slot_index].len = len;
+    r->segments[slot_index].received = true;
+    r->bytes_pending += len;
 
-    // Flush the buffer by trying to write any segments that are now in order
+    trace("[REASM] Inserted segment seq=%d into slot %d\n", seqno, slot_index);
+
+    // Try to write any segments that are now in order
     try_write_in_order(r);
 
-    // Return the number of bytes successfully inserted into reassembler
     return len;
 }
 
 uint16_t reassembler_next_seqno(const struct reassembler *r) {
-    return r ? r->next_seqno : 0;  // Return next expected seqno, or 0 if invalid
+    return r ? r->next_seqno : 0;
 }
 
 size_t reassembler_bytes_pending(const struct reassembler *r) {
-    return r ? r->bytes_pending : 0;  // Return bytes pending, or 0 if invalid
+    return r ? r->bytes_pending : 0;
 }
 
 bool reassembler_is_complete(const struct reassembler *r) {
     if (!r)
         return false;
 
-    // Not complete if we have bytes pending
-    if (r->bytes_pending > 0)
-        return false;
-
-    // Not complete if any segments still buffered
-    for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-        if (r->segments[i].received)
-            return false;
-    }
-
-    // Complete if no pending bytes and no buffered segments
-    return true;
+    // Complete if no bytes pending and no segments in buffer
+    return r->bytes_pending == 0;
 }

@@ -71,32 +71,48 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
         sender_fill_window(client->sender);  // Fill window with new segments
         const struct unacked_segment *seg = sender_next_segment(client->sender);
         if (seg) {
-            trace("Client sending segment seq=%d to NRF addr %x...\n\t%s\n", seg->seqno,
-                  client->remote_addr, seg->data);
-            tcp_send_segment(client, seg);
-        }
-
-        // Check for ACK
-        struct rcp_datagram ack = rcp_datagram_init();
-        if (tcp_recv_packet(client, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
-            // Randomly drop some ACKs to force retransmission
-            trace("Client received ACK for seq=%d from RCP addr %x\n", ack.header.ackno,
-                  ack.header.src);
-            sender_process_ack(client->sender, &ack.header);
+            // Drop packets based on sequence number and timing
+            bool should_drop = (seg->seqno * timer_get_usec()) % 7 == 0;  // Pseudo-random dropping
+            if (!should_drop) {
+                trace("Client sending segment seq=%d to NRF addr %x...\n\t%s\n", seg->seqno,
+                      client->remote_addr, seg->data);
+                tcp_send_segment(client, seg);
+            } else {
+                trace("[DROPPED SEGMENT] Simulating dropped segment seq=%d\n", seg->seqno);
+                // Mark as sent even though we dropped it - simulates network loss
+                sender_segment_sent(client->sender, seg, timer_get_usec());
+            }
         }
 
         // Server side: receive packet
         struct rcp_datagram dgram = rcp_datagram_init();
         if (tcp_recv_packet(server, &dgram) == 0) {
-            // Randomly drop some packets to force retransmission
-            if (receiver_process_segment(server->receiver, &dgram) == 0) {
+            int result = receiver_process_segment(server->receiver, &dgram);
+            trace("Server processed segment seq=%d with result %d\n", dgram.header.seqno, result);
+            if (result >= 0) {  // Process succeeded or was retransmission
                 trace("Server received segment seq=%d from RCP addr %x, next_seqno=%d\n",
                       dgram.header.seqno, dgram.header.src, server->receiver->reasm->next_seqno);
-                struct rcp_header ack = {0};
-                receiver_get_ack(server->receiver, &ack);
-                trace("Server sending ACK for seq=%d to RCP addr %x\n", ack.ackno, ack.src);
-                tcp_send_ack(server, &ack);
+
+                // Drop ACKs based on sequence number and timing
+                bool should_drop_ack = ((dgram.header.seqno * timer_get_usec()) % 5) == 0;
+                if (!should_drop_ack) {
+                    struct rcp_header ack = {0};
+                    receiver_get_ack(server->receiver, &ack);
+                    trace("Server sending ACK for seq=%d to RCP addr %x\n", ack.ackno, ack.src);
+                    tcp_send_ack(server, &ack);
+                } else {
+                    trace("[DROPPED ACK] Server dropping ACK for seq=%d\n",
+                          server->receiver->reasm->next_seqno - 1);
+                }
             }
+        }
+
+        // Client side: check for ACK
+        struct rcp_datagram ack = rcp_datagram_init();
+        if (tcp_recv_packet(client, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
+            trace("Client received ACK for seq=%d from RCP addr %x\n", ack.header.ackno,
+                  ack.header.src);
+            sender_process_ack(client->sender, &ack.header);
         }
 
         // Read any available data from server's incoming bytestream
