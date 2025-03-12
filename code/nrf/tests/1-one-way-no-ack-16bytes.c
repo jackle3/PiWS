@@ -70,7 +70,7 @@ one_way_noack(nrf_t *server, nrf_t *client, int verbose_p) {
 void notmain(void) {
     unsigned nbytes = 16;
 
-    kmalloc_init(1);
+    kmalloc_init(64);
     trace("configuring no-ack server=[%x] with %d nbyte msgs\n",
                 server_addr, nbytes);
     // nrf-test.h

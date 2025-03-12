@@ -44,7 +44,7 @@ one_way_ack(nrf_t *server, nrf_t *client, int verbose_p) {
 
 void notmain(void) {
     unsigned nbytes = 4;
-    kmalloc_init(1);
+    kmalloc_init(64);
 
     trace("configuring reliable (acked) server=[%x] with %d nbyte msgs\n",
                 server_addr, nbytes);

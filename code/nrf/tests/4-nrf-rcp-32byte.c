@@ -3,97 +3,108 @@
 #include "rcp_datagram.h"
 #include <string.h>
 
-// Test sending a 22-byte message in a single RCP packet
-static void test_rcp_packet(nrf_t *n) {
-    // Create test message that's exactly 22 bytes (RCP_MAX_PAYLOAD)
-    const char test_msg[RCP_MAX_PAYLOAD] = "22-byte-test-message!!";
-    
-    // Create RCP datagram with our test message
-    struct rcp_datagram dgram = rcp_datagram_init();
-    
-    // Set up header fields
-    dgram.header.src = 0x01;      // Source address 1
-    dgram.header.dst = 0x02;      // Destination address 2
-    dgram.header.seqno = 1;       // First packet
-    dgram.header.window = 1;      // Window size of 1
-    rcp_set_flag(&dgram.header, RCP_FLAG_SYN);  // SYN packet
-    
-    // Set the payload
-    if (rcp_datagram_set_payload(&dgram, test_msg, sizeof(test_msg)) < 0) {
-        panic("Failed to set payload\n");
+// useful to mess around with these.
+enum { ntrial = 1000, timeout_usec = 1000 };
+
+// max message size.
+typedef struct {
+    uint8_t data[RCP_TOTAL_SIZE];
+} data_t;
+_Static_assert(sizeof(data_t) == RCP_TOTAL_SIZE, "invalid size");
+
+static void test_rcp_packet(nrf_t *server, nrf_t *client, int verbose_p) {
+    unsigned client_addr = client->rxaddr;
+    unsigned ntimeout = 0, npackets = 0;
+
+    for(unsigned i = 0; i < ntrial; i++) {
+        if(verbose_p && i && i % 100 == 0)
+            trace("sent %d ack'd packets\n", i);
+
+        // Create RCP datagram with test message
+        struct rcp_datagram dgram = rcp_datagram_init();
+        char test_msg[32];
+        snprintk(test_msg, sizeof(test_msg), "test message %d", i);
+        
+        // Print message about to be sent
+        if (i % 100 == 0) {
+            trace("Sending message: %s\n", test_msg);
+        }
+        
+        // Set up header fields
+        dgram.header.src = server->rxaddr;
+        dgram.header.dst = client_addr;
+        dgram.header.seqno = i;
+        dgram.header.window = 1;
+        rcp_set_flag(&dgram.header, RCP_FLAG_SYN);
+        
+        // Set payload and compute checksum
+        if(rcp_datagram_set_payload(&dgram, test_msg, strlen(test_msg) + 1) < 0) {
+            panic("Failed to set payload\n");
+        }
+        rcp_compute_checksum(&dgram.header);
+
+        // Serialize into data_t struct
+        data_t d = {0};
+        int packet_len = rcp_datagram_serialize(&dgram, d.data, RCP_TOTAL_SIZE);
+        if(packet_len < 0) {
+            panic("Failed to serialize packet\n");
+        }
+
+        // Send packet
+        int ret = nrf_send_ack(server, client_addr, &d, RCP_TOTAL_SIZE);
+        if(ret != RCP_TOTAL_SIZE) {
+            panic("send failed\n");
+        }
+
+        // Receive packet
+        data_t rx;
+        ret = nrf_read_exact_timeout(client, &rx, RCP_TOTAL_SIZE, timeout_usec);
+        if(ret == RCP_TOTAL_SIZE) {
+            // Parse received packet
+            struct rcp_datagram rx_dgram = rcp_datagram_init();
+            if(rcp_datagram_parse(&rx_dgram, rx.data, RCP_TOTAL_SIZE) < 0) {
+                nrf_output("client: corrupt packet=%d\n", i);
+                continue;
+            }
+
+            // Print received message
+            if (i % 100 == 0) {
+                trace("Received message: %s\n", (char*)rx_dgram.payload);
+            }
+
+            // Verify received data matches
+            if(memcmp(rx_dgram.payload, test_msg, rx_dgram.header.payload_len) == 0) {
+                npackets++;
+            } else {
+                nrf_output("client: data mismatch packet=%d\n", i);
+            }
+        } else {
+            if(verbose_p)
+                output("receive failed for packet=%d, nbytes=%d ret=%d\n", i, RCP_TOTAL_SIZE, ret);
+            ntimeout++;
+        }
     }
-    
-    // Compute checksum
-    rcp_compute_checksum(&dgram.header);
-    
-    // Buffer for serialized packet
-    uint8_t packet[RCP_TOTAL_SIZE];
-    int packet_len = rcp_datagram_serialize(&dgram, packet, sizeof(packet));
-    if (packet_len < 0) {
-        panic("Failed to serialize packet\n");
-    }
-    
-    // Verify packet size
-    if (packet_len != RCP_TOTAL_SIZE) {
-        panic("Unexpected packet size: got %d, expected %d\n", 
-              packet_len, RCP_TOTAL_SIZE);
-    }
-    
-    // Send the packet
-    output("Sending RCP packet (header=%d bytes, payload=%d bytes, total=%d bytes)\n",
-           RCP_HEADER_LENGTH, dgram.payload_length, packet_len);
-    nrf_send_ack(n, 0x12345678, packet, packet_len);
-    output("Packet sent!\n");
-    
-    // Wait for acknowledgment
-    uint8_t rx[RCP_TOTAL_SIZE];
-    int rx_len = nrf_read_exact(n, rx, packet_len);
-    if (rx_len < 0) {
-        panic("Failed to get ACK\n");
-    }
-    
-    // Parse received packet
-    struct rcp_datagram rx_dgram = rcp_datagram_init();
-    if (rcp_datagram_parse(&rx_dgram, rx, rx_len) < 0) {
-        panic("Failed to parse received packet\n");
-    }
-    
-    // Verify received header fields
-    if (rx_dgram.header.src != dgram.header.src ||
-        rx_dgram.header.dst != dgram.header.dst ||
-        rx_dgram.header.seqno != dgram.header.seqno ||
-        rx_dgram.header.window != dgram.header.window ||
-        !rcp_has_flag(&rx_dgram.header, RCP_FLAG_SYN)) {
-        panic("Header field mismatch!\n");
-    }
-    
-    // Verify received payload
-    if (rx_dgram.payload_length != sizeof(test_msg)) {
-        panic("Received wrong payload size: got %zu, expected %zu\n",
-              rx_dgram.payload_length, sizeof(test_msg));
-    }
-    
-    if (memcmp(rx_dgram.payload, test_msg, sizeof(test_msg)) != 0) {
-        panic("Received data doesn't match sent data\n");
-    }
-    
-    output("Successfully received ACK with matching header and payload!\n");
-    
-    // Clean up
-    rcp_datagram_free(&dgram);
-    rcp_datagram_free(&rx_dgram);
+
+    trace("trial: total successfully sent %d ack'd packets lost [%d]\n",
+        npackets, ntimeout);
+    assert((ntimeout + npackets) == ntrial);
 }
 
 void notmain(void) {
-    output("Testing RCP packet transmission over NRF\n");
-    
-    // Initialize NRF
-    nrf_t *n = nrf_init_test_default();
-    if (!n) {
-        panic("Failed to initialize NRF\n");
-    }
-    
-    test_rcp_packet(n);
-    
-    output("All tests passed!\n");
-} 
+    kmalloc_init(64);
+
+    trace("configuring reliable (acked) server=[%x] with RCP packets\n", server_addr);
+
+    nrf_t *s = server_mk_ack(server_addr, RCP_TOTAL_SIZE);
+    nrf_t *c = client_mk_ack(client_addr, RCP_TOTAL_SIZE);
+
+    nrf_stat_start(s);
+    nrf_stat_start(c);
+
+    // run test.
+    test_rcp_packet(s, c, 1);
+
+    // emit all the stats.
+    nrf_stat_print(s, "server: done with RCP test");
+    nrf_stat_print(c, "client: done with RCP test");
+}
