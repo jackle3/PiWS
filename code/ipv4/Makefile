@@ -1,18 +1,28 @@
+# Include both numbered tests and our specific test file
 PROGS += $(wildcard tests/[0123]-*.c)
+PROGS += tests/test_ipv4_header.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
-COMMON_SRC := nrf-hw-support.c nrf-public.c nrf-driver.c
+# Common source files
+COMMON_SRC := ipv4_header.c
 
 STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/staff-hw-spi.o
+
+# we give you a kmalloc
 STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/kmalloc.o
 
 RUN=1
 
 BOOTLOADER = my-install
 EXCLUDE ?= grep -v simple_boot
-GREP_STR := 'HASH:\|ERROR:\|PANIC:\|SUCCESS:\|NRF:'
+GREP_STR := 'HASH:\|ERROR:\|PANIC:\|SUCCESS:\|NRF:\|PASS:\|FAIL:'
 include $(CS140E_PITCP)/libpi/mk/Makefile.robust
+
+# Run all tests including our IPv4 header test
+test: all
+	@echo "Running IPv4 header tests..."
+	./tests/test_ipv4_header.bin
 
 checkoff:
 	make -f ./Makefile PROGS="$(wildcard tests/[0123]-*.c)" check
