@@ -48,3 +48,13 @@ void tcp_close(struct tcp_connection *tcp);
 
 // Handle handshake
 int tcp_do_handshake(struct tcp_connection *tcp);
+
+// Send segment
+int tcp_send_segment(struct tcp_connection *tcp, const struct unacked_segment *seg);
+
+// Receive packet
+int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram);
+
+// Send ACK
+int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack);
+

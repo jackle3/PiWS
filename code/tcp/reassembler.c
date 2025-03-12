@@ -21,6 +21,7 @@ struct reassembler* reassembler_init(struct bytestream *output, size_t capacity)
 }
 
 static void try_write_in_order(struct reassembler *r) {
+    trace("Trying to write in order\n");
     bool progress;
     do {
         progress = false;
@@ -28,6 +29,7 @@ static void try_write_in_order(struct reassembler *r) {
         // Look for segments that can be written to the output
         for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
             struct pending_segment *seg = &r->segments[i];
+            trace("Checking segment %u, seqno=%d, received=%d, next_seqno=%d\n", i, seg->seqno, seg->received, r->next_seqno);
             if (seg->received && seg->seqno == r->next_seqno) {
                 // Write this segment to the output
                 bytestream_write(r->output, seg->data, seg->len);
@@ -51,11 +53,15 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data,
                          size_t len, uint16_t seqno, bool is_last) {
     if (!r || !data || len == 0) return 0;
 
+    trace("Inserting segment seq=%d, len=%u, is_last=%d, next_seqno=%d\n", seqno, len, is_last, r->next_seqno);
+
     // If this is an old segment we've already processed, ignore it
     if (seqno < r->next_seqno) return 0;
 
     // Check if we have capacity for this segment
     if (r->bytes_pending + len > r->capacity) return 0;
+    
+    trace("We have enough space, searching for a slot\n");
 
     // Find a slot for this segment
     struct pending_segment *target = NULL;

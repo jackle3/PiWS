@@ -20,14 +20,42 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     // Send test data
     trace("Sending test data...\n");
     const char *test_msg = "Test TCP message";
-    int ret = tcp_send(client, test_msg, strlen(test_msg));
-    assert(ret == strlen(test_msg));
+    size_t written = bytestream_write(client->sender->outgoing, test_msg, strlen(test_msg));
+    
+    // Alternate between client and server until data is received
+    while (bytestream_bytes_available(server->receiver->incoming) < strlen(test_msg)) {
+        // Client side: send segment if available
+        sender_fill_window(client->sender);  // Fill window with new segments
+        const struct unacked_segment *seg = sender_next_segment(client->sender);
+        if (seg) {
+            trace("Client sending segment seq=%d to NRF addr %x...\n", seg->seqno, client->remote_addr);
+            tcp_send_segment(client, seg);
+        }
+        
+        // Check for ACK
+        struct rcp_datagram ack = rcp_datagram_init();
+        if (tcp_recv_packet(client, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
+            trace("Client received ACK for seq=%d from NRF addr %x\n", ack.header.ackno, ack.header.src);
+            sender_process_ack(client->sender, &ack.header);
+        }
 
-    // Receive data
-    trace("Receiving data...\n");
+        // Server side: receive packet
+        struct rcp_datagram dgram = rcp_datagram_init();
+        if (tcp_recv_packet(server, &dgram) == 0) {
+            if (receiver_process_segment(server->receiver, &dgram) == 0) {
+                trace("Server received segment seq=%d from NRF addr %x\n", dgram.header.seqno, dgram.header.src);
+                struct rcp_header ack = {0};
+                receiver_get_ack(server->receiver, &ack);
+                trace("Server sending ACK for seq=%d to NRF addr %x\n", ack.ackno, ack.src);
+                tcp_send_ack(server, &ack);
+            }
+        }
+    }
+
+    // Read received data
     char buffer[100];
-    ret = tcp_recv(server, buffer, sizeof(buffer));
-    assert(ret == strlen(test_msg));
+    size_t read = bytestream_read(server->receiver->incoming, buffer, sizeof(buffer));
+    assert(read == strlen(test_msg));
     assert(memcmp(buffer, test_msg, strlen(test_msg)) == 0);
 
     // Clean up
