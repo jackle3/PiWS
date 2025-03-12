@@ -58,6 +58,9 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
                 tcp_send_ack(server, &ack);
             }
         }
+
+        // Check for retransmission timeouts
+        tcp_check_retransmit(client, timer_get_usec() / 1000);  // Convert to ms
     }
 
     trace("Finished sending data\n\n");

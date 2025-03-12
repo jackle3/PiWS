@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #define SENDER_WINDOW_SIZE 8  // Maximum number of unacked segments
-#define RETRANSMIT_TIMEOUT_MS 1000  // Retransmission timeout in milliseconds
 
 // Structure to track unacknowledged segments
 struct unacked_segment {
