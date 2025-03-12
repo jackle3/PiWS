@@ -1,5 +1,6 @@
 # Include both numbered tests and our specific test file
-PROGS += tests/test-tcp.c
+# PROGS += tests/test-tcp.c
+PROGS += tests/test-tcp-over-nrf.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
