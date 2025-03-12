@@ -225,6 +225,10 @@ nrf_t *nrf_init(nrf_conf_t c, uint32_t rxaddr, unsigned acked_p) {
     // clear the status register by writing 1s to bits 4:6 (RX_DR, TX_DS, MAX_RT)
     nrf_put8(n, NRF_STATUS, (0b111 << 4));
 
+    // flush the tx and rx fifos
+    nrf_tx_flush(n);
+    nrf_rx_flush(n);
+
     // i think w/ the nic is off, this better be true.
     assert(!nrf_tx_fifo_full(n));
     assert(nrf_tx_fifo_empty(n));
@@ -242,9 +246,6 @@ nrf_t *nrf_init(nrf_conf_t c, uint32_t rxaddr, unsigned acked_p) {
     // we skip reg=0x10 (TX_ADDR): used only when sending.
     nrf_put8_chk(n, NRF_FEATURE, 0);
     nrf_put8_chk(n, NRF_DYNPD, 0);
-
-    nrf_tx_flush(n);
-    nrf_rx_flush(n);
 
     // pg 22: go from <PowerDown> to <Standby-I>
     // now go from make sure you delay long enough!

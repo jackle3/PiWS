@@ -31,13 +31,8 @@ size_t bytestream_write(struct bytestream *bs, const uint8_t *data, size_t len) 
 
     size_t bytes_to_write = len;
     size_t space_available = bs->capacity - bs->bytes_available;
-    // if (bytes_to_write > space_available) {
-    //     bytes_to_write = space_available;
-    // }
-
-    // Only write if we can write all the data at once
     if (bytes_to_write > space_available) {
-        return 0;
+        bytes_to_write = space_available;
     }
 
     // Handle buffer wraparound - may need to split write into two parts
