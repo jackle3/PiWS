@@ -172,7 +172,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
 
         case TCP_SYN_SENT: {
             // Client: resend SYN periodically and check for SYN-ACK
-            if (timer_get_usec() - tcp->last_time > 100000) {  // Resend every 100ms
+            if (timer_get_usec() - tcp->last_time > RETRANSMIT_TIMEOUT_US) {  // Resend every 100ms
                 struct rcp_datagram syn = rcp_datagram_init();
                 syn.header.src = tcp->sender->src_addr;
                 syn.header.dst = tcp->sender->dst_addr;
@@ -230,7 +230,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
 
         case TCP_SYN_RECEIVED: {
             // Server: waiting for ACK, resend SYN-ACK periodically
-            if (timer_get_usec() - tcp->last_time > 100000) {  // Resend every 100ms
+            if (timer_get_usec() - tcp->last_time > RETRANSMIT_TIMEOUT_US) {  // Resend every 100ms
                 struct rcp_datagram synack = rcp_datagram_init();
                 synack.header.src = tcp->sender->src_addr;
                 synack.header.dst = tcp->sender->dst_addr;
@@ -350,7 +350,7 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack) {
 }
 
 // Change from static to public function
-int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_ms) {
+int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us) {
     if (!tcp || !tcp->sender)
         return -1;
 
@@ -360,10 +360,10 @@ int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_ms) {
     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
         struct unacked_segment *seg = &tcp->sender->segments[i];
         if (!seg->acked && seg->send_time > 0 &&
-            (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_US) {
-            trace("[%s] Retransmitting expired segment seq=%d (last sent %dms ago)\n",
+            (current_time_us - seg->send_time) >= RETRANSMIT_TIMEOUT_US) {
+            trace("\n\t\t[%s] RETRANSMITTING expired segment seq=%d (last sent %uus ago)\n",
                   tcp->is_server ? "server" : "client", seg->seqno,
-                  current_time_ms - seg->send_time);
+                  current_time_us - seg->send_time);
 
             // Retransmit the segment
             if (tcp_send_segment(tcp, seg) == 0) {

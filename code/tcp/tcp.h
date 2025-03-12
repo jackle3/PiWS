@@ -59,5 +59,6 @@ int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram);
 int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack);
 
 // Check and retransmit any expired segments
+// current_time_us should be from timer_get_usec()
 // Returns number of segments retransmitted, or -1 on error
-int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_ms);
+int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us);

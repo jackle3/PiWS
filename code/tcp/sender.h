@@ -39,14 +39,9 @@ int sender_fill_window(struct sender *s);
 // Returns number of newly acknowledged segments
 int sender_process_ack(struct sender *s, const struct rcp_header *ack);
 
-// Check for segments that need retransmission
-// current_time_ms should be monotonically increasing
-// Returns number of segments marked for retransmission
-// int sender_check_retransmit(struct sender *s, uint32_t current_time_ms);
-
 // Get next segment to transmit (either new or retransmission)
 // Returns NULL if no segment available
 const struct unacked_segment* sender_next_segment(const struct sender *s);
 
 // Mark a segment as sent
-void sender_segment_sent(struct sender *s, const struct unacked_segment *seg, uint32_t current_time_ms);
+void sender_segment_sent(struct sender *s, const struct unacked_segment *seg, uint32_t current_time_us);

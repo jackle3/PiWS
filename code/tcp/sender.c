@@ -1,9 +1,11 @@
 #include "sender.h"
+
 #include <string.h>
 
-struct sender* sender_init(uint8_t src_addr, uint8_t dst_addr, size_t stream_capacity) {
+struct sender *sender_init(uint8_t src_addr, uint8_t dst_addr, size_t stream_capacity) {
     struct sender *s = kmalloc(sizeof(struct sender));
-    if (!s) return NULL;
+    if (!s)
+        return NULL;
 
     s->outgoing = bytestream_init(stream_capacity);
     if (!s->outgoing) {
@@ -27,7 +29,7 @@ struct sender* sender_init(uint8_t src_addr, uint8_t dst_addr, size_t stream_cap
 
 /**
  * Fills the sender's window with new segments from the outgoing bytestream.
- * 
+ *
  * This function reads all available data from the outgoing bytestream and breaks it
  * into segments of size RCP_MAX_PAYLOAD. For each segment, it creates an unacked_segment
  * structure to track it until acknowledgment is received.
@@ -42,16 +44,15 @@ struct sender* sender_init(uint8_t src_addr, uint8_t dst_addr, size_t stream_cap
  */
 int sender_fill_window(struct sender *s) {
     // Input validation
-    if (!s) return -1;
+    if (!s)
+        return -1;
 
     int segments_created = 0;
-    
+
     // Keep creating segments while we have:
     // - Space in the window (segments_in_flight < window_size)
     // - Data to send in the bytestream
-    while (s->segments_in_flight < s->window_size && 
-           bytestream_bytes_available(s->outgoing) > 0) {
-        
+    while (s->segments_in_flight < s->window_size && bytestream_bytes_available(s->outgoing) > 0) {
         // Search for an unused segment slot in our segments array
         // (unused slots are marked as acked=true)
         struct unacked_segment *seg = NULL;
@@ -63,14 +64,14 @@ int sender_fill_window(struct sender *s) {
             }
         }
         // If no free slots found, stop creating segments
-        if (!seg) break;  
+        if (!seg)
+            break;
 
         // Read up to RCP_MAX_PAYLOAD bytes from the bytestream into this segment
         // This effectively breaks the stream into fixed-size chunks
-        size_t bytes_read = bytestream_read(s->outgoing, 
-                                          seg->data, 
-                                          RCP_MAX_PAYLOAD);
-        if (bytes_read == 0) break;
+        size_t bytes_read = bytestream_read(s->outgoing, seg->data, RCP_MAX_PAYLOAD);
+        if (bytes_read == 0)
+            break;
 
         // Setup the new unacked segment with:
         // - The actual data length we read
@@ -80,7 +81,7 @@ int sender_fill_window(struct sender *s) {
         seg->len = bytes_read;
         seg->seqno = s->next_seqno++;
         seg->acked = false;
-        seg->send_time = 0;  
+        seg->send_time = 0;
 
         // Update window tracking
         s->segments_in_flight++;
@@ -91,7 +92,8 @@ int sender_fill_window(struct sender *s) {
 }
 
 int sender_process_ack(struct sender *s, const struct rcp_header *ack) {
-    if (!s || !ack) return -1;
+    if (!s || !ack)
+        return -1;
 
     int segments_acked = 0;
 
@@ -111,26 +113,9 @@ int sender_process_ack(struct sender *s, const struct rcp_header *ack) {
     return segments_acked;
 }
 
-// int sender_check_retransmit(struct sender *s, uint32_t current_time_ms) {
-//     if (!s) return -1;
-
-//     int segments_to_retransmit = 0;
-
-//     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
-//         struct unacked_segment *seg = &s->segments[i];
-//         if (!seg->acked && seg->send_time > 0 &&
-//             (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_MS) {
-//             // Mark for retransmission by clearing send time
-//             seg->send_time = 0;
-//             segments_to_retransmit++;
-//         }
-//     }
-
-//     return segments_to_retransmit;
-// }
-
-const struct unacked_segment* sender_next_segment(const struct sender *s) {
-    if (!s) return NULL;
+const struct unacked_segment *sender_next_segment(const struct sender *s) {
+    if (!s)
+        return NULL;
 
     // Look for any unacknowledged segment that hasn't been sent yet
     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
@@ -143,14 +128,15 @@ const struct unacked_segment* sender_next_segment(const struct sender *s) {
     return NULL;
 }
 
-void sender_segment_sent(struct sender *s, const struct unacked_segment *seg, 
-                        uint32_t current_time_ms) {
-    if (!s || !seg) return;
+void sender_segment_sent(struct sender *s, const struct unacked_segment *seg,
+                         uint32_t current_time_us) {
+    if (!s || !seg)
+        return;
 
     // Find the segment in our array and update its send time
     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
         if (&s->segments[i] == seg) {
-            s->segments[i].send_time = current_time_ms;
+            s->segments[i].send_time = current_time_us;
             break;
         }
     }
