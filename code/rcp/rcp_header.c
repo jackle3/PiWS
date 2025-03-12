@@ -30,12 +30,8 @@ void rcp_compute_checksum(struct rcp_header *hdr) {
     hdr->cksum = 0;
     
     // Calculate checksum over header
-    hdr->cksum = calculate_checksum((uint8_t*)hdr, RCP_HEADER_LENGTH);
-    
-    // Restore original checksum if verification fails
-    if (saved_cksum != 0) {
-        hdr->cksum = saved_cksum;
-    }
+    uint8_t checksum = calculate_checksum((uint8_t*)hdr, RCP_HEADER_LENGTH);
+    hdr->cksum = checksum;
 }
 
 void rcp_parse(struct rcp_header *hdr, const void *data) {
