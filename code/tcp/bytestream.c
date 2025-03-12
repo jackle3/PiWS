@@ -13,7 +13,7 @@ struct bytestream* bytestream_init(size_t capacity) {
     bs->capacity = capacity;
     bs->read_pos = 0;
     bs->write_pos = 0;
-    bs->bytes_available = 0;
+    bs->bytes_available = 0;  // number of bytes available to read
     bs->_eof = false;
 
     return bs;
@@ -24,8 +24,13 @@ size_t bytestream_write(struct bytestream *bs, const uint8_t *data, size_t len) 
 
     size_t bytes_to_write = len;
     size_t space_available = bs->capacity - bs->bytes_available;
+    // if (bytes_to_write > space_available) {
+    //     bytes_to_write = space_available;
+    // }
+
+    // Only write if we can write all the data
     if (bytes_to_write > space_available) {
-        bytes_to_write = space_available;
+        return 0;
     }
 
     // Write data in two parts if wrapping around buffer end

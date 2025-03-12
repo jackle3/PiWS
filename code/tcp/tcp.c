@@ -200,7 +200,7 @@ int tcp_do_handshake(struct tcp_connection *tcp) {
                     tcp->receiver->reasm->next_seqno = rx.header.seqno + 1;
                     
                     // Update sender's sequence number
-                    tcp->sender->next_seqno++;  // Increment for the SYN we sent
+                    // tcp->sender->next_seqno++;  // Increment for the SYN we sent
                     
                     // Send ACK
                     struct rcp_datagram ack = rcp_datagram_init();
