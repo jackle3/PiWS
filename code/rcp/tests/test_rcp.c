@@ -7,6 +7,8 @@
 
 // Test RCP header initialization
 static void test_header_init(void) {
+    printk("--------------------------------\n");
+    printk("Starting header initialization test...\n");
     struct rcp_header hdr = rcp_header_init();
     assert(hdr.payload_len == 0);
     assert(hdr.cksum == 0);
@@ -17,10 +19,13 @@ static void test_header_init(void) {
     assert(hdr.ackno == 0);
     assert(hdr.window == 0);
     printk("Header initialization test passed!\n");
+    printk("--------------------------------\n");
 }
 
 // Test RCP header flag operations
 static void test_header_flags(void) {
+    printk("--------------------------------\n");
+    printk("Starting header flags test...\n");
     struct rcp_header hdr = rcp_header_init();
     
     // Test setting flags
@@ -38,10 +43,13 @@ static void test_header_flags(void) {
     assert(rcp_has_flag(&hdr, RCP_FLAG_ACK));
     
     printk("Header flag operations test passed!\n");
+    printk("--------------------------------\n");
 }
 
 // Test RCP header serialization and parsing
 static void test_header_serialization(void) {
+    printk("--------------------------------\n");
+    printk("Starting header serialization test...\n");
     struct rcp_header hdr = rcp_header_init();
     hdr.payload_len = 10;
     hdr.dst = 0x42;
@@ -66,10 +74,12 @@ static void test_header_serialization(void) {
     assert(parsed.window == hdr.window);
     
     printk("Header serialization/parsing test passed!\n");
+    printk("--------------------------------\n");
 }
 
 // Test RCP datagram operations
 static void test_datagram_operations(void) {
+    printk("--------------------------------\n");
     printk("Starting datagram operations test...\n");
     struct rcp_datagram dgram = rcp_datagram_init();
     const char test_data[] = "Hello, RCP!";
@@ -98,10 +108,12 @@ static void test_datagram_operations(void) {
     assert(memcmp(parsed.payload, dgram.payload, parsed.payload_length) == 0);
     
     printk("Datagram operations test passed!\n");
+    printk("--------------------------------\n");
 }
 
 // Test maximum payload size handling
 static void test_max_payload(void) {
+    printk("--------------------------------\n");
     printk("Starting max payload test...\n");
     struct rcp_datagram dgram = rcp_datagram_init();
     uint8_t max_payload[RCP_MAX_PAYLOAD];
@@ -116,10 +128,12 @@ static void test_max_payload(void) {
     assert(rcp_datagram_set_payload(&dgram, too_large, sizeof(too_large)) == -1);
 
     printk("Maximum payload size test passed!\n");
+    printk("--------------------------------\n");
 }
 
 // Test checksum computation
 static void test_checksum(void) {
+    printk("--------------------------------\n");
     printk("Starting checksum test...\n");
     struct rcp_header hdr = rcp_header_init();
     hdr.payload_len = 10;
@@ -138,6 +152,7 @@ static void test_checksum(void) {
     assert(hdr.cksum != original_checksum);
     
     printk("Checksum computation test passed!\n");
+    printk("--------------------------------\n");
 }
 
 void notmain(void) {
