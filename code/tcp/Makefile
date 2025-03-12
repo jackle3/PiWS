@@ -5,7 +5,7 @@ PROGS += tests/test-tcp-over-nrf.c
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
 # Common source files
-COMMON_SRC := bytestream.c sender.c receiver.c reassembler.c
+COMMON_SRC := bytestream.c sender.c receiver.c reassembler.c tcp.c
 
 COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp-datagram.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-driver.c

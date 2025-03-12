@@ -95,7 +95,6 @@ int sender_check_retransmit(struct sender *s, uint32_t current_time_ms) {
         if (!seg->acked && seg->send_time > 0 &&
             (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_MS) {
             // Mark for retransmission by clearing send time
-            trace("            - marking segment %d for retransmission\n", seg->seqno);
             seg->send_time = 0;
             segments_to_retransmit++;
         }

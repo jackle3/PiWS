@@ -1,0 +1,50 @@
+#pragma once
+
+#include "sender.h"
+#include "receiver.h"
+#include "nrf.h"
+
+// TCP connection state
+enum tcp_state {
+    TCP_CLOSED,
+    TCP_LISTEN,
+    TCP_SYN_SENT,
+    TCP_SYN_RECEIVED,
+    TCP_ESTABLISHED,
+    TCP_FIN_WAIT,
+    TCP_CLOSED_WAIT,
+    TCP_CLOSING,
+    TCP_TIME_WAIT,
+};
+
+// TCP connection structure
+struct tcp_connection {
+    struct sender *sender;        // Sender for outgoing data
+    struct receiver *receiver;    // Receiver for incoming data
+    nrf_t *nrf;                  // NRF radio interface
+    uint32_t remote_addr;         // Remote address
+    enum tcp_state state;        // Current connection state
+    bool is_server;             // Whether this is server or client
+    uint32_t last_time;         // Last activity timestamp
+};
+
+// Initialize TCP connection
+struct tcp_connection* tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server);
+
+// // Connect to remote (client)
+// int tcp_connect(struct tcp_connection *tcp);
+
+// // Accept connection (server)
+// int tcp_accept(struct tcp_connection *tcp);
+
+// Send data
+int tcp_send(struct tcp_connection *tcp, const void *data, size_t len);
+
+// Receive data
+int tcp_recv(struct tcp_connection *tcp, void *data, size_t len);
+
+// Close connection
+void tcp_close(struct tcp_connection *tcp);
+
+// Handle handshake
+int tcp_do_handshake(struct tcp_connection *tcp);
