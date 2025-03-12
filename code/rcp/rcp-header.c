@@ -1,4 +1,4 @@
-#include "rcp_header.h"
+#include "rcp-header.h"
 #include <string.h>
 
 struct rcp_header rcp_header_init(void) {

@@ -1,6 +1,6 @@
 #include "nrf.h"
 #include "nrf-test.h"
-#include "rcp_datagram.h"
+#include "rcp-datagram.h"
 #include <string.h>
 
 // useful to mess around with these.

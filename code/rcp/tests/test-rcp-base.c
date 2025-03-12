@@ -1,5 +1,5 @@
-#include "rcp_datagram.h"
-#include "rcp_header.h"
+#include "rcp-datagram.h"
+#include "rcp-header.h"
 #include "rpi.h"
 
 #include <stdio.h>

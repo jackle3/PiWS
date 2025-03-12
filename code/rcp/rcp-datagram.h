@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rcp_header.h"
+#include "rcp-header.h"
 #include <stddef.h>
 #include <stdint.h>
 

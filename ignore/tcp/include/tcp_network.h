@@ -2,7 +2,7 @@
 
 #include "tcp_common.h"
 #include "nrf.h"
-#include "rcp_datagram.h"
+#include "rcp-datagram.h"
 
 /* Network interface structure */
 struct tcp_network {

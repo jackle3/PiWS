@@ -150,8 +150,8 @@ Disassembly of section .text:
 00008204 <notmain>:
     8204:	e92d43f0 	push	{r4, r5, r6, r7, r8, r9, lr}
     8208:	e24dd024 	sub	sp, sp, #36, 0	; 0x24
-    820c:	e3a01601 	mov	r1, #1048576	; 0x100000
-    8210:	e1a00001 	mov	r0, r1
+    820c:	e3a01301 	mov	r1, #67108864	; 0x4000000
+    8210:	e3a00601 	mov	r0, #1048576	; 0x100000
     8214:	eb000d85 	bl	b830 <kmalloc_init_set_start>
     8218:	e59f112c 	ldr	r1, [pc, #300]	; 834c <notmain+0x148>
     821c:	e59f012c 	ldr	r0, [pc, #300]	; 8350 <notmain+0x14c>

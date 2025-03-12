@@ -2,7 +2,7 @@
 
 #include "bytestream.h"
 #include "reassembler.h"
-#include "../rcp/rcp_datagram.h"
+#include "rcp-datagram.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

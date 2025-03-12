@@ -4,7 +4,18 @@ PROGS += tests/test-tcp.c
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
 # Common source files
-COMMON_SRC := bytestream.c sender.c receiver.c reassembler.c $(CS140E_PITCP)/code/rcp/rcp_header.c $(CS140E_PITCP)/code/rcp/rcp_datagram.c
+COMMON_SRC := bytestream.c sender.c receiver.c reassembler.c
+
+COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp-datagram.c
+COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-driver.c
+COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-hw-support.c
+COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-public.c
+
+# Add include paths for NRF
+CFLAGS += -I$(CS140E_PITCP)/code/nrf
+CFLAGS += -I$(CS140E_PITCP)/code/nrf/tests
+CFLAGS += -I$(CS140E_PITCP)/code/rcp
+
 
 STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/staff-hw-spi.o
 

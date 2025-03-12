@@ -1,4 +1,4 @@
-#include "rcp_datagram.h"
+#include "rcp-datagram.h"
 #include <string.h>
 
 struct rcp_datagram rcp_datagram_init(void) {
