@@ -3,12 +3,12 @@
 #include "uart-to-tcp.h"
 
 // useful to mess around with these. 
-enum { ntrial = 1000, timeout_usec = 5000, nbytes = 32 };
+enum { ntrial = 1000, timeout_usec = 500000, nbytes = 32 };
 
 // example possible wrapper to recv a 32-bit value.
 static int net_get32(nrf_t *nic, uint8_t *out) {
     int ret = nrf_read_exact_timeout(nic, out, 32, timeout_usec);
-    if(ret != 4) {
+    if(ret != 32) {
         debug("receive failed: ret=%d\n", ret);
         return 0;
     }
