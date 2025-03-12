@@ -86,7 +86,7 @@ static void test_datagram_operations(void) {
     
     // Test payload setting
     assert(rcp_datagram_set_payload(&dgram, test_data, strlen(test_data)) == 0);
-    assert(dgram.payload_length == strlen(test_data));
+    assert(dgram.header.payload_len == strlen(test_data));
     assert(memcmp(dgram.payload, test_data, strlen(test_data)) == 0);
     
     // Test serialization
@@ -104,8 +104,8 @@ static void test_datagram_operations(void) {
     // Test parsing
     struct rcp_datagram parsed = rcp_datagram_init();
     assert(rcp_datagram_parse(&parsed, buffer, len) == len);
-    assert(parsed.payload_length == dgram.payload_length);
-    assert(memcmp(parsed.payload, dgram.payload, parsed.payload_length) == 0);
+    assert(parsed.header.payload_len == dgram.header.payload_len);
+    assert(memcmp(parsed.payload, dgram.payload, parsed.header.payload_len) == 0);
     
     printk("Datagram operations test passed!\n");
     printk("--------------------------------\n");
@@ -121,7 +121,7 @@ static void test_max_payload(void) {
     
     // Test setting maximum payload
     assert(rcp_datagram_set_payload(&dgram, max_payload, RCP_MAX_PAYLOAD) == 0);
-    assert(dgram.payload_length == RCP_MAX_PAYLOAD);
+    assert(dgram.header.payload_len == RCP_MAX_PAYLOAD);
     
     // Test exceeding maximum payload
     uint8_t too_large[RCP_MAX_PAYLOAD + 1];
@@ -158,7 +158,7 @@ static void test_checksum(void) {
 void notmain(void) {
     printk("Starting RCP tests...\n\n");
 
-    kmalloc_init(1);
+    kmalloc_init(64);
     
     test_header_init();
     test_header_flags();

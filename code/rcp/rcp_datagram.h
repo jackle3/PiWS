@@ -10,7 +10,6 @@
 struct rcp_datagram {
     struct rcp_header header;  /* RCP header */
     uint8_t* payload;         /* Pointer to payload data */
-    size_t payload_length;    /* Length of payload in bytes */
 };
 
 /* Initialize a new RCP datagram with default header values */

@@ -1,12 +1,10 @@
 #include "rcp_datagram.h"
-#include <stdlib.h>
 #include <string.h>
 
 struct rcp_datagram rcp_datagram_init(void) {
     struct rcp_datagram dgram = {
         .header = rcp_header_init(),
         .payload = NULL,
-        .payload_length = 0
     };
     return dgram;
 }
@@ -35,7 +33,7 @@ int rcp_datagram_parse(struct rcp_datagram* dgram, const void* data, size_t leng
         memcpy(dgram->payload, 
                (const uint8_t*)data + RCP_HEADER_LENGTH, 
                payload_len);
-        dgram->payload_length = payload_len;
+        dgram->header.payload_len = payload_len;
     }
 
     return RCP_HEADER_LENGTH + payload_len;
@@ -46,7 +44,7 @@ int rcp_datagram_serialize(const struct rcp_datagram* dgram, void* data, size_t 
         return -1;
     }
 
-    size_t total_length = RCP_HEADER_LENGTH + dgram->payload_length;
+    size_t total_length = RCP_HEADER_LENGTH + dgram->header.payload_len;
     if (max_length < total_length || total_length > RCP_TOTAL_SIZE) {
         return -1;  // Buffer too small or packet too large
     }
@@ -55,10 +53,10 @@ int rcp_datagram_serialize(const struct rcp_datagram* dgram, void* data, size_t 
     rcp_serialize(&dgram->header, data);
 
     // Copy payload if present
-    if (dgram->payload && dgram->payload_length > 0) {
+    if (dgram->payload && dgram->header.payload_len > 0) {
         memcpy((uint8_t*)data + RCP_HEADER_LENGTH, 
                dgram->payload, 
-               dgram->payload_length);
+               dgram->header.payload_len);
     }
 
     return total_length;
@@ -71,7 +69,6 @@ int rcp_datagram_set_payload(struct rcp_datagram* dgram, const void* data, size_
 
     // Free existing payload if any
     dgram->payload = NULL;
-    dgram->payload_length = 0;
     dgram->header.payload_len = 0;
 
     if (data && length > 0) {
@@ -82,7 +79,6 @@ int rcp_datagram_set_payload(struct rcp_datagram* dgram, const void* data, size_
         }
         
         memcpy(dgram->payload, data, length);
-        dgram->payload_length = length;
         dgram->header.payload_len = length;
     }
 
