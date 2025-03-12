@@ -5,10 +5,12 @@
 #define mac 0xAA
 
 /* User configurations for the header info */
-void config_init(sw_uart_t u);
+void config_init_sw(sw_uart_t u);
+void config_init_hw();
 
 /* Receive user input and return a rcp packet*/
-struct rcp_datagram create_packet(sw_uart_t u);
+struct rcp_datagram create_packet_sw(sw_uart_t u);
+struct rcp_datagram create_packet_hw();
 
 // Circular buffer used to continually parse user input
 // uint8_t *buf[25];

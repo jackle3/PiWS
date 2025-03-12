@@ -4,7 +4,9 @@
 # PROGS= 2-hello-n.c
 # PROGS= $(wildcard [01234]-*.c)
 # PROGS= 0-hello-get.c
-PROGS= 1-tcp-print.c
+# PROGS= 1-tcp-print.c
+# PROGS= 1-serialize-packets.c
+PROGS= 2-uart-sender.c
 
 # honestly, once this works, the rest probably do as well.
 # PROGS= 0-hello.c
@@ -17,8 +19,8 @@ CFLAGS += -I$(CS140E_PITCP)/code/nrf
 CFLAGS += -I$(CS140E_PITCP)/code/nrf/tests
 CFLAGS += -I$(CS140E_PITCP)/code/rcp/
 
-COMMON_SRC := sw-uart.c uart-to-tcp.c
-# COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-hw-support.c $(CS140E_PITCP)/code/nrf/nrf-public.c $(CS140E_PITCP)/code/nrf/nrf-driver.c
+COMMON_SRC := sw-uart.c uart-to-tcp.c uart.c
+COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-hw-support.c $(CS140E_PITCP)/code/nrf/nrf-public.c $(CS140E_PITCP)/code/nrf/nrf-driver.c
 COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-datagram.c $(CS140E_PITCP)/code/rcp/rcp-header.c
 
 

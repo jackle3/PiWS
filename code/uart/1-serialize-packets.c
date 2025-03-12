@@ -4,20 +4,20 @@
 
 void notmain(void) {
     output("Starting UART-to-TCP test...\n");
-    hw_uart_disable();
+    // hw_uart_disable();
     kmalloc_init(1);
 
     // Initialize software UART on GPIO pins 14 (TX) and 15 (RX)
-    sw_uart_t u = sw_uart_init(14, 15, 115200);
+    // sw_uart_t u = sw_uart_init(14, 15, 115200);
+    uart_init();
 
     // Configure header with user input
-    config_init_sw(u);
+    config_init_hw();
 
     // Create an RCP packet from UART input
-    struct rcp_datagram packet = create_packet_sw(u);
+    struct rcp_datagram packet = create_packet_hw();
 
     // Reset to using hardware UART
-    uart_init();
 
     // Print out the resulting TCP packet details
     printk("\n--- Generated TCP Packet Details ---\n");
