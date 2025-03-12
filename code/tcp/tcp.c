@@ -344,6 +344,34 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack) {
     return 0;
 }
 
+// Helper function to check and retransmit expired segments
+static int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_ms) {
+    if (!tcp || !tcp->sender)
+        return -1;
+
+    int segments_retransmitted = 0;
+
+    // Check all segments for timeout
+    for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
+        struct unacked_segment *seg = &tcp->sender->segments[i];
+        if (!seg->acked && seg->send_time > 0 &&
+            (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_MS) {
+            
+            trace("[%s] Retransmitting expired segment seq=%d (last sent %dms ago)\n",
+                  tcp->is_server ? "server" : "client",
+                  seg->seqno,
+                  current_time_ms - seg->send_time);
+
+            // Retransmit the segment
+            if (tcp_send_segment(tcp, seg) == 0) {
+                segments_retransmitted++;
+            }
+        }
+    }
+
+    return segments_retransmitted;
+}
+
 int tcp_send(struct tcp_connection *tcp, const void *data, size_t len) {
     if (!tcp || tcp->state != TCP_ESTABLISHED)
         return -1;
@@ -355,32 +383,51 @@ int tcp_send(struct tcp_connection *tcp, const void *data, size_t len) {
 
     uint32_t curr_time = timer_get_usec();
     size_t bytes_acked = 0;
+    uint32_t last_retransmit_check = curr_time;
 
     // Keep sending until all data is acknowledged
     while (bytes_acked < written) {
+        // Check and retransmit expired segments every 100ms
+        if (curr_time - last_retransmit_check >= 100000) {  // 100ms in microseconds
+            int segments_retransmitted = tcp_check_retransmit(tcp, curr_time / 1000);  // Convert to ms
+            if (segments_retransmitted > 0) {
+                trace("[%s] Retransmitted %d expired segments\n", 
+                      tcp->is_server ? "server" : "client", segments_retransmitted);
+            }
+            last_retransmit_check = curr_time;
+        }
+
         // Fill window with new segments
         sender_fill_window(tcp->sender);
 
-        // Get next segment to send
+        // Get next segment to send (new segments only, retransmission handled separately)
         const struct unacked_segment *seg = sender_next_segment(tcp->sender);
-        if (seg) {
+        if (seg && seg->send_time == 0) {  // Only send if it's a new segment
             // Send segment
-            if (tcp_send_segment(tcp, seg) < 0)
+            if (tcp_send_segment(tcp, seg) < 0) {
+                curr_time = timer_get_usec();
                 continue;
+            }
 
-            // Wait for ACK
-            struct rcp_datagram ack = rcp_datagram_init();
-            if (tcp_recv_packet(tcp, &ack) == 0 &&
-                rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
-                // Process ACK
-                int newly_acked = sender_process_ack(tcp->sender, &ack.header);
-                if (newly_acked > 0)
-                    bytes_acked += newly_acked * RCP_MAX_PAYLOAD;
+            trace("[%s] Sending new segment seq=%d (bytes_acked=%d/%d)\n",
+                  tcp->is_server ? "server" : "client",
+                  seg->seqno, bytes_acked, written);
+        }
+
+        // Try to receive ACK with short timeout
+        struct rcp_datagram ack = rcp_datagram_init();
+        if (tcp_recv_packet(tcp, &ack) == 0 &&
+            rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
+            // Process ACK
+            int newly_acked = sender_process_ack(tcp->sender, &ack.header);
+            if (newly_acked > 0) {
+                bytes_acked += newly_acked * RCP_MAX_PAYLOAD;
+                trace("[%s] Received ACK for %d segments (bytes_acked=%d/%d)\n",
+                      tcp->is_server ? "server" : "client",
+                      newly_acked, bytes_acked, written);
             }
         }
 
-        // Check for retransmissions
-        sender_check_retransmit(tcp->sender, curr_time);
         curr_time = timer_get_usec();
     }
 

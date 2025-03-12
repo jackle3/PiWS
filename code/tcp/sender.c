@@ -111,28 +111,28 @@ int sender_process_ack(struct sender *s, const struct rcp_header *ack) {
     return segments_acked;
 }
 
-int sender_check_retransmit(struct sender *s, uint32_t current_time_ms) {
-    if (!s) return -1;
+// int sender_check_retransmit(struct sender *s, uint32_t current_time_ms) {
+//     if (!s) return -1;
 
-    int segments_to_retransmit = 0;
+//     int segments_to_retransmit = 0;
 
-    for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
-        struct unacked_segment *seg = &s->segments[i];
-        if (!seg->acked && seg->send_time > 0 &&
-            (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_MS) {
-            // Mark for retransmission by clearing send time
-            seg->send_time = 0;
-            segments_to_retransmit++;
-        }
-    }
+//     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
+//         struct unacked_segment *seg = &s->segments[i];
+//         if (!seg->acked && seg->send_time > 0 &&
+//             (current_time_ms - seg->send_time) >= RETRANSMIT_TIMEOUT_MS) {
+//             // Mark for retransmission by clearing send time
+//             seg->send_time = 0;
+//             segments_to_retransmit++;
+//         }
+//     }
 
-    return segments_to_retransmit;
-}
+//     return segments_to_retransmit;
+// }
 
 const struct unacked_segment* sender_next_segment(const struct sender *s) {
     if (!s) return NULL;
 
-    // First look for segments that need retransmission
+    // Look for any unacknowledged segment that hasn't been sent yet
     for (size_t i = 0; i < SENDER_WINDOW_SIZE; i++) {
         const struct unacked_segment *seg = &s->segments[i];
         if (!seg->acked && seg->send_time == 0) {

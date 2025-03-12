@@ -43,7 +43,7 @@ int sender_process_ack(struct sender *s, const struct rcp_header *ack);
 // Check for segments that need retransmission
 // current_time_ms should be monotonically increasing
 // Returns number of segments marked for retransmission
-int sender_check_retransmit(struct sender *s, uint32_t current_time_ms);
+// int sender_check_retransmit(struct sender *s, uint32_t current_time_ms);
 
 // Get next segment to transmit (either new or retransmission)
 // Returns NULL if no segment available
