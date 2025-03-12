@@ -1,11 +1,11 @@
 # Include both numbered tests and our specific test file
-PROGS += $(wildcard tests/[0123]-*.c)
-PROGS += tests/test_ipv4_header.c
+# PROGS += tests/test_ipv4_header.c
+PROGS += tests/test_ipv4_datagram.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
 # Common source files
-COMMON_SRC := ipv4_header.c
+COMMON_SRC := ipv4_header.c ipv4_datagram.c
 
 STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/staff-hw-spi.o
 

@@ -111,8 +111,8 @@ void ipv4_compute_checksum(struct ipv4_header *hdr) {
 }
 
 /* Parse raw network data into an IPv4 header structure */
-void ipv4_parse(struct ipv4_header *hdr, void *parser) {
-    uint8_t *data = (uint8_t*)parser;
+void ipv4_parse(struct ipv4_header *hdr, const void *data_bytes) {
+    const uint8_t *data = (const uint8_t*)data_bytes;
     
     /* First byte contains version and header length */
     hdr->ver = (data[0] >> 4) & 0x0F;
@@ -176,4 +176,23 @@ void ipv4_serialize(const struct ipv4_header *hdr, void *serializer) {
     data[17] = (hdr->dst >> 16) & 0xFF;
     data[18] = (hdr->dst >> 8) & 0xFF;
     data[19] = hdr->dst & 0xFF;
+}
+
+struct ipv4_header ipv4_init(void) {
+    struct ipv4_header hdr = {
+        .ver = 4,
+        .hlen = IPV4_HEADER_LENGTH / 4,
+        .tos = 0,
+        .len = 0,
+        .id = 0,
+        .df = 1,
+        .mf = 0,
+        .offset = 0,
+        .ttl = IPV4_DEFAULT_TTL,
+        .proto = IPV4_PROTO_TCP,
+        .cksum = 0,
+        .src = 0,
+        .dst = 0,
+    };
+    return hdr;
 }

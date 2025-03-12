@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rpi.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,7 +27,7 @@
  */
 
 struct ipv4_header {
-    uint8_t ver;           /* IP version */
+    uint8_t ver;           /* IP version */ 
     uint8_t hlen;          /* header length (multiples of 32 bits) */
     uint8_t tos;           /* type of service */
     uint16_t len;          /* total length of packet */
@@ -45,8 +46,10 @@ struct ipv4_header {
 uint16_t ipv4_payload_length(const struct ipv4_header *hdr);
 uint32_t ipv4_pseudo_checksum(const struct ipv4_header *hdr);
 void ipv4_compute_checksum(struct ipv4_header *hdr);
-void ipv4_parse(struct ipv4_header *hdr, void *parser);
+void ipv4_parse(struct ipv4_header *hdr, const void *data_bytes);
 void ipv4_serialize(const struct ipv4_header *hdr, void *serializer);
+
+struct ipv4_header ipv4_init(void);
 
 /* Calculate 16-bit one's complement sum over data */
 uint16_t ones_complement_sum(const uint16_t *data, size_t len_bytes);

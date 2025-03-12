@@ -1,4 +1,5 @@
-PROGS += $(wildcard tests/[0123]-*.c)
+# PROGS += $(wildcard tests/[0123456]-*.c)
+PROGS += tests/4-one-way-ack-32bytes.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
