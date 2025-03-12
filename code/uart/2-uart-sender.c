@@ -34,7 +34,7 @@ void notmain(void) {
     // nrf_t *c = client_mk_ack(client_addr, nbytes);
 
     // run test.
-    config_init_hw();
+    // config_init_hw();
     for (int i = 0; i < 5; i++){
         struct rcp_datagram dgram = create_packet_hw();
         uint8_t buf[32];

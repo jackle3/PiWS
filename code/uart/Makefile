@@ -6,7 +6,8 @@
 # PROGS= 0-hello-get.c
 # PROGS= 1-tcp-print.c
 # PROGS= 1-serialize-packets.c
-PROGS= 2-uart-sender.c
+# PROGS= 2-uart-sender.c
+PROGS= 2-uart-recv.c
 
 # honestly, once this works, the rest probably do as well.
 # PROGS= 0-hello.c

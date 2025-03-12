@@ -32,16 +32,12 @@ void notmain(void) {
 
     // nrf_t *s = server_mk_noack(server_addr, nbytes);
     nrf_t *c = client_mk_noack(client_addr, nbytes);
-
-    nrf_rx_mode(c);
-    // nrf_stat_start(c);
-
     // run test.
     config_init_hw();
     // uint8_t buf[32];
     struct rcp_datagram dgram;
+    delay_ms(4000);
     for (int i = 0; i < 10; i++) {
-        while (!nrf_rx_has_packet(c)) {};
         net_get32(c, (uint8_t *)&dgram);
         for (int x = 0; x < dgram.header.payload_len; x++) {
             uart_put8(dgram.payload[x]);
