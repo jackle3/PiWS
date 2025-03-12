@@ -1,0 +1,1 @@
+PANIC:nrf-driver.c:nrf_tx_send_ack:377:Max retransmission interrupts reached

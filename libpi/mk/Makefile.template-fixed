@@ -65,7 +65,7 @@ endif
 # add libpi to LIBS
 LIBS += $(LIB) $(LPI) 
 
-include $(CS140E_2025_PATH)/libpi/defs.mk
+include $(CS140E_PITCP)/libpi/defs.mk
 
 # try this method instead so we don't need the year baked
 # into everything.

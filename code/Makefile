@@ -1,25 +1,21 @@
+# Makefile to build or clean all labs.
+SUBDIRS += nrf
 
-PROGS += 1-blink.c
+.PHONY: all check clean
+all check clean: $(SUBDIRS)
 
-LIBS += $(CS140E_PITCP)/lib/libgcc.a
+all: TARGET=all
+check: TARGET=check
+clean: TARGET=clean
 
-# COMMON_SRC := nrf-hw-support.c nrf-public.c nrf-driver.c
+# No, you can't do TARGET=$@, or at least I don't know how to.
 
-# STAFF_OBJS += staff-nrf-driver.o
+# recursive call to make
+$(SUBDIRS): force
+	$(MAKE) -s -C $@ $(TARGET) RUN=0
 
-STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/staff-hw-spi.o
+clean:
+	rm -f *~ *.bak
 
-# we give you a kmalloc
-STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/kmalloc.o
-
-# uncomment if you want it to automatically run.
-RUN=1
-
-BOOTLOADER = my-install
-EXCLUDE ?= grep -v simple_boot
-GREP_STR := 'HASH:\|ERROR:\|PANIC:\|SUCCESS:\|NRF:'
-include $(CS140E_PITCP)/libpi/mk/Makefile.robust
-
-checkoff:
-	make -f ./Makefile PROGS="$(wildcard tests/[0123]-*.c)" check
-	# make -f ./Makefile PROGS="$(ALL)" check
+.PHONY: force
+	force :;

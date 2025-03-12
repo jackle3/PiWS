@@ -53,7 +53,7 @@ endif
 # add libpi to LIBS
 LIBS += $(LIB) $(LPI) 
 
-include $(CS140E_2025_PATH)/libpi/defs.mk
+include $(CS140E_PITCP)/libpi/defs.mk
 
 ifndef MK_CHK
     MK_CHK := $(LPP)/mk/Makefile.check-v3

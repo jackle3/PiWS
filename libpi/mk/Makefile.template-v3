@@ -48,7 +48,7 @@ VPATH := $(dirs)
 
 .SUFFIXES: .run
 
-include $(CS140E_2025_PATH)/libpi/defs.mk
+include $(CS140E_PITCP)/libpi/defs.mk
 CFLAGS += -MMD
 ## XXX: when we don't have this, the .d files don't get generated.
 # but make wasn't complaining.

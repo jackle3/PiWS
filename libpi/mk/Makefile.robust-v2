@@ -165,7 +165,7 @@ endif
 # pull in 140e definitions of common variables:
 #   - <LPP>, <LPI>, <START>, <MEMMAP>, <CFLAGS>
 #   - tool names: <CC>, <OD>, etc
-include $(CS140E_2025_PATH)/libpi/defs.mk
+include $(CS140E_PITCP)/libpi/defs.mk
 
 # if they don't want to override the check makefile.
 ifndef MK_CHK

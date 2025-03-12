@@ -1,0 +1,17 @@
+DEBUG:done with options: dev name=</dev/cu.usbserial-210>, pi-prog=<./tests/4-ping-pong-partner-4bytes.bin>, trace=0
+opened tty port </dev/cu.usbserial-210>.
+DEBUG:my-install: tty-usb=</dev/cu.usbserial-210> program=<./tests/4-ping-pong-partner-4bytes.bin>: about to boot
+TRACE:simple_boot: sending 23972 bytes, crc32=7db6d24a
+BOOT:waiting for a start
+DEBUG:PRINT_STRING:pi sent print: <UART Jack Le: success: Received the program!>
+BOOT:bootloader: Done.
+TRACE:notmain:send total=5, 4-byte messages from server=[0xd5d5d5] to client=[0xe5e5e5]
+tests/4-ping-pong-partner-4bytes.c:net_get32:11:DEBUG:receive failed: ret=-1
+tests/4-ping-pong-partner-4bytes.c:net_get32:11:DEBUG:receive failed: ret=-1
+tests/4-ping-pong-partner-4bytes.c:net_get32:11:DEBUG:receive failed: ret=-1
+tests/4-ping-pong-partner-4bytes.c:net_get32:11:DEBUG:receive failed: ret=-1
+PANIC:nrf-driver.c:nrf_tx_send_ack:377:Max retransmission interrupts reached
+
+DONE!!!
+
+bootloader: pi exited.  cleaning up
