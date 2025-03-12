@@ -25,16 +25,35 @@ struct sender* sender_init(uint8_t src_addr, uint8_t dst_addr, size_t stream_cap
     return s;
 }
 
+/**
+ * Fills the sender's window with new segments from the outgoing bytestream.
+ * 
+ * This function reads all available data from the outgoing bytestream and breaks it
+ * into segments of size RCP_MAX_PAYLOAD. For each segment, it creates an unacked_segment
+ * structure to track it until acknowledgment is received.
+ *
+ * The function continues creating segments as long as:
+ * 1. There is space available in the sliding window (segments_in_flight < window_size)
+ * 2. There is data available in the outgoing bytestream
+ * 3. There are free segment slots available
+ *
+ * @param s Pointer to the sender struct
+ * @return Number of new segments created, or -1 on error
+ */
 int sender_fill_window(struct sender *s) {
+    // Input validation
     if (!s) return -1;
 
     int segments_created = 0;
     
-    // While we have space in the window and data to send
+    // Keep creating segments while we have:
+    // - Space in the window (segments_in_flight < window_size)
+    // - Data to send in the bytestream
     while (s->segments_in_flight < s->window_size && 
            bytestream_bytes_available(s->outgoing) > 0) {
         
-        // Find a free segment slot
+        // Search for an unused segment slot in our segments array
+        // (unused slots are marked as acked=true)
         struct unacked_segment *seg = NULL;
         size_t slot;
         for (slot = 0; slot < SENDER_WINDOW_SIZE; slot++) {
@@ -43,20 +62,27 @@ int sender_fill_window(struct sender *s) {
                 break;
             }
         }
-        if (!seg) break;  // No free slots
+        // If no free slots found, stop creating segments
+        if (!seg) break;  
 
-        // Read data from bytestream
+        // Read up to RCP_MAX_PAYLOAD bytes from the bytestream into this segment
+        // This effectively breaks the stream into fixed-size chunks
         size_t bytes_read = bytestream_read(s->outgoing, 
                                           seg->data, 
                                           RCP_MAX_PAYLOAD);
         if (bytes_read == 0) break;
 
-        // Initialize segment
+        // Setup the new unacked segment with:
+        // - The actual data length we read
+        // - The next sequence number
+        // - Mark it as not acknowledged
+        // - Clear send time (will be set when actually transmitted)
         seg->len = bytes_read;
         seg->seqno = s->next_seqno++;
         seg->acked = false;
-        seg->send_time = 0;  // Will be set when actually sent
+        seg->send_time = 0;  
 
+        // Update window tracking
         s->segments_in_flight++;
         segments_created++;
     }
