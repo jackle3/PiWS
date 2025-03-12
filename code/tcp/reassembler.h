@@ -1,24 +1,25 @@
 #pragma once
 
-#include "bytestream.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include "bytestream.h"
+
 // Maximum number of out-of-order segments that can be stored
 #define MAX_PENDING_SEGMENTS 32
 
-// A slot represents a position in the reassembler's buffer where an out-of-order 
+// A slot represents a position in the reassembler's buffer where an out-of-order
 // segment can be stored. Each slot tracks:
 // - The actual data bytes of the segment
 // - The length of the segment
 // - The sequence number (position in the byte stream)
 // - Whether this slot contains valid data
 struct pending_segment {
-    uint8_t *data;              // The actual bytes of the segment
-    size_t len;                 // Number of bytes in this segment
-    uint16_t seqno;            // Where these bytes belong in the overall stream
-    bool received;             // Whether this slot contains valid data
+    uint8_t *data;   // The actual bytes of the segment
+    size_t len;      // Number of bytes in this segment
+    uint16_t seqno;  // Where these bytes belong in the overall stream
+    bool received;   // Whether this slot contains valid data
 };
 
 // The reassembler maintains an ordered buffer of segments and tracks:
@@ -27,8 +28,8 @@ struct pending_segment {
 // - How many bytes are currently buffered (bytes_pending)
 struct reassembler {
     struct bytestream *output;  // Stream where we write reassembled data
-    uint16_t next_seqno;       // Next sequence number we expect to receive
-    
+    uint16_t next_seqno;        // Next sequence number we expect to receive
+
     // Array of slots for out-of-order segments
     // For example, if we receive segments in order: 3,1,4,2
     // We would:
@@ -36,23 +37,23 @@ struct reassembler {
     // 2. Store segment 1 in a slot, process it immediately
     // 3. Store segment 4 in a slot, can't process yet (waiting for 2)
     // 4. Store segment 2 in a slot, then process 2,3,4 in order
-    struct pending_segment segments[MAX_PENDING_SEGMENTS];  
-    
-    size_t capacity;           // Maximum total bytes we can store in slots
-    size_t bytes_pending;      // Current total bytes stored in slots
+    struct pending_segment segments[MAX_PENDING_SEGMENTS];
+
+    size_t capacity;       // Maximum total bytes we can store in slots
+    size_t bytes_pending;  // Current total bytes stored in slots
 };
 
 // Create a new reassembler that will write its reassembled output to the given bytestream.
 // The capacity limits how many total bytes can be stored in pending segments.
-struct reassembler* reassembler_init(struct bytestream *output, size_t capacity);
+struct reassembler *reassembler_init(struct bytestream *output, size_t capacity);
 
 // Try to insert a new segment into the reassembler:
 // 1. If the segment's seqno matches next_seqno, write it to output immediately
 // 2. If the segment's seqno is higher, store it in a slot until we can process it
 // 3. If the segment's seqno is lower, it's a duplicate - ignore it
 // Returns number of bytes successfully inserted
-size_t reassembler_insert(struct reassembler *r, const uint8_t *data, 
-                         size_t len, uint16_t seqno, bool is_last);
+size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len, uint16_t seqno,
+                          bool is_last);
 
 // Get the next sequence number we're expecting
 // This is used by TCP to know what to ACK

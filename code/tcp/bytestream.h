@@ -1,9 +1,10 @@
 #pragma once
 
-#include "rpi.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "rpi.h"
 
 // Bytestream structure for managing circular buffer of bytes
 struct bytestream {
@@ -12,17 +13,17 @@ struct bytestream {
     size_t read_pos;         // Position for next read
     size_t write_pos;        // Position for next write
     size_t bytes_available;  // Number of bytes available to read
-    bool _eof;              // End of stream indicator
+    bool _eof;               // End of stream indicator
 };
 
 // Initialize a new bytestream with given capacity
-struct bytestream* bytestream_init(size_t capacity);
+struct bytestream *bytestream_init(size_t capacity);
 
 // Write data to the bytestream
 // Returns number of bytes written
 size_t bytestream_write(struct bytestream *bs, const uint8_t *data, size_t len);
 
-// Read data from the bytestream
+// Read data from the bytestream and remove it from the buffer
 // Returns number of bytes read
 size_t bytestream_read(struct bytestream *bs, uint8_t *data, size_t len);
 

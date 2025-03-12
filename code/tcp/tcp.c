@@ -58,40 +58,6 @@ struct tcp_connection *tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server
     return tcp;
 }
 
-// int tcp_connect(struct tcp_connection *tcp) {
-//     if (!tcp || tcp->state != TCP_CLOSED)
-//         return -1;
-
-//     // Send SYN
-//     struct rcp_datagram syn = rcp_datagram_init();
-//     syn.header.src = tcp->sender->src_addr;
-//     syn.header.dst = tcp->remote_addr;
-//     syn.header.seqno = tcp->sender->next_seqno++;
-//     rcp_set_flag(&syn.header, RCP_FLAG_SYN);
-//     rcp_compute_checksum(&syn.header);
-
-//     uint8_t buffer[RCP_TOTAL_SIZE];
-//     if (rcp_datagram_serialize(&syn, buffer, RCP_TOTAL_SIZE) < 0)
-//         return -1;
-
-//     trace("Sending SYN...\n");
-//     nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
-//     trace("SYN sent\n");
-//     tcp->state = TCP_SYN_SENT;
-//     return 0;
-// }
-
-// int tcp_accept(struct tcp_connection *tcp) {
-//     if (!tcp)
-//         return -1;
-
-//     if (tcp->state == TCP_CLOSED) {
-//         tcp->state = TCP_LISTEN;
-//         return 0;
-//     }
-//     return -1;
-// }
-
 int tcp_do_handshake(struct tcp_connection *tcp) {
     if (!tcp)
         return -1;
@@ -349,7 +315,6 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack) {
     return 0;
 }
 
-// Change from static to public function
 int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us) {
     if (!tcp || !tcp->sender)
         return -1;

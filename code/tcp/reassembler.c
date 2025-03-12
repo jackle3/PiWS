@@ -3,20 +3,22 @@
 #include <string.h>
 
 struct reassembler *reassembler_init(struct bytestream *out_stream, size_t capacity) {
+    // Allocate space for reassembler struct
     struct reassembler *r = kmalloc(sizeof(struct reassembler));
     if (!r)
         return NULL;
 
-    r->output = out_stream;
-    r->next_seqno = 0;
-    r->capacity = capacity;
-    r->bytes_pending = 0;
+    // Initialize fields
+    r->output = out_stream;  // Output stream to write reassembled data to
+    r->next_seqno = 0;       // Next expected sequence number
+    r->capacity = capacity;  // Max bytes that can be buffered
+    r->bytes_pending = 0;    // Current bytes buffered but not written
 
-    // Initialize all slots as empty
+    // Initialize all segment slots as empty
     memset(r->segments, 0, sizeof(r->segments));
     for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
-        r->segments[i].data = NULL;
-        r->segments[i].received = false;
+        r->segments[i].data = NULL;       // No data buffer allocated yet
+        r->segments[i].received = false;  // Slot is available
     }
 
     return r;
@@ -27,7 +29,8 @@ static void try_write_in_order(struct reassembler *r) {
     // If we didn't, we can stop flushing buffer.
     bool wrote_something;
 
-    // Keep trying to write segments as long as there are segments in order (i.e. seqno matches next_seqno)
+    // Keep trying to write segments as long as there are segments in order (i.e. seqno matches
+    // next_seqno)
     do {
         wrote_something = false;
 
@@ -36,28 +39,31 @@ static void try_write_in_order(struct reassembler *r) {
             struct pending_segment *seg = &r->segments[i];
 
             // If this slot is empty, ignore it
-            if (!seg->received) continue;
+            if (!seg->received)
+                continue;
 
-            // If this slot is not in order (i.e. seqno doesn't match what we want to flush next), ignore
-            if (seg->seqno != r->next_seqno) continue;
+            // If this slot is not in order (i.e. seqno doesn't match what we want to flush next),
+            // ignore
+            if (seg->seqno != r->next_seqno)
+                continue;
 
-            // Found a segment that's next in sequence! Write it to the output stream
+            // Found next segment in sequence - try writing to output stream
             size_t written = bytestream_write(r->output, seg->data, seg->len);
             if (written == 0) {
-                return; // No more space in output stream
+                return;  // Output stream is full
             }
 
-            // Update next expected sequence number
-            r->next_seqno++;
-            r->bytes_pending -= seg->len;
+            // Successfully wrote segment, update state
+            r->next_seqno++;               // Advance expected sequence number
+            r->bytes_pending -= seg->len;  // Reduce pending byte count
 
-            // Free segment resources
-            seg->data = NULL;
-            seg->received = false;
+            // Free segment slot
+            seg->data = NULL;       // Free data buffer
+            seg->received = false;  // Mark slot as available
 
-            wrote_something = true;
+            wrote_something = true;  // Note that we wrote a segment
 
-            // We found a segment that we can write, reset and look for next segment in order
+            // Found and wrote a segment, start over looking for next in sequence
             break;
         }
     } while (wrote_something);
@@ -106,26 +112,27 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len
 }
 
 uint16_t reassembler_next_seqno(const struct reassembler *r) {
-    return r ? r->next_seqno : 0;
+    return r ? r->next_seqno : 0;  // Return next expected seqno, or 0 if invalid
 }
 
 size_t reassembler_bytes_pending(const struct reassembler *r) {
-    return r ? r->bytes_pending : 0;
+    return r ? r->bytes_pending : 0;  // Return bytes pending, or 0 if invalid
 }
 
 bool reassembler_is_complete(const struct reassembler *r) {
     if (!r)
         return false;
 
-    // Check if we have any pending segments
+    // Not complete if we have bytes pending
     if (r->bytes_pending > 0)
         return false;
 
-    // Check if all segments have been processed
+    // Not complete if any segments still buffered
     for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
         if (r->segments[i].received)
             return false;
     }
 
+    // Complete if no pending bytes and no buffered segments
     return true;
 }

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "sender.h"
-#include "receiver.h"
 #include "nrf.h"
+#include "receiver.h"
+#include "sender.h"
 
 // TCP connection state
 enum tcp_state {
@@ -19,23 +19,17 @@ enum tcp_state {
 
 // TCP connection structure
 struct tcp_connection {
-    struct sender *sender;        // Sender for outgoing data
-    struct receiver *receiver;    // Receiver for incoming data
-    nrf_t *nrf;                  // NRF radio interface
-    uint32_t remote_addr;         // Remote address
-    enum tcp_state state;        // Current connection state
-    bool is_server;             // Whether this is server or client
+    struct sender *sender;      // Sender for outgoing data
+    struct receiver *receiver;  // Receiver for incoming data
+    nrf_t *nrf;                 // NRF radio interface
+    uint32_t remote_addr;       // Remote address
+    enum tcp_state state;       // Current connection state
+    bool is_server;             // Whether this is server or client (client sends SYN first)
     uint32_t last_time;         // Last activity timestamp
 };
 
 // Initialize TCP connection
-struct tcp_connection* tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server);
-
-// // Connect to remote (client)
-// int tcp_connect(struct tcp_connection *tcp);
-
-// // Accept connection (server)
-// int tcp_accept(struct tcp_connection *tcp);
+struct tcp_connection *tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server);
 
 // Send data
 int tcp_send(struct tcp_connection *tcp, const void *data, size_t len);
@@ -59,6 +53,6 @@ int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram);
 int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack);
 
 // Check and retransmit any expired segments
-// current_time_us should be from timer_get_usec()
+// - current_time_us should be from timer_get_usec()
 // Returns number of segments retransmitted, or -1 on error
 int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us);
