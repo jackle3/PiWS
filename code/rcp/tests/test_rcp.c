@@ -70,6 +70,7 @@ static void test_header_serialization(void) {
 
 // Test RCP datagram operations
 static void test_datagram_operations(void) {
+    printk("Starting datagram operations test...\n");
     struct rcp_datagram dgram = rcp_datagram_init();
     const char test_data[] = "Hello, RCP!";
     
@@ -82,6 +83,13 @@ static void test_datagram_operations(void) {
     uint8_t buffer[RCP_TOTAL_SIZE];
     int len = rcp_datagram_serialize(&dgram, buffer, sizeof(buffer));
     assert(len > 0);
+
+    // Print out the serialized datagram
+    printk("Serialized datagram: ");
+    for (int i = 0; i < len; i++) {
+        printk("%x ", buffer[i]);
+    }
+    printk("\n");
     
     // Test parsing
     struct rcp_datagram parsed = rcp_datagram_init();
@@ -94,6 +102,7 @@ static void test_datagram_operations(void) {
 
 // Test maximum payload size handling
 static void test_max_payload(void) {
+    printk("Starting max payload test...\n");
     struct rcp_datagram dgram = rcp_datagram_init();
     uint8_t max_payload[RCP_MAX_PAYLOAD];
     memset(max_payload, 'A', RCP_MAX_PAYLOAD);
@@ -111,6 +120,7 @@ static void test_max_payload(void) {
 
 // Test checksum computation
 static void test_checksum(void) {
+    printk("Starting checksum test...\n");
     struct rcp_header hdr = rcp_header_init();
     hdr.payload_len = 10;
     hdr.dst = 0x42;
@@ -123,6 +133,8 @@ static void test_checksum(void) {
     // Modify a field and recompute
     hdr.dst = 0x43;
     rcp_compute_checksum(&hdr);
+    printk("Checksum: %d\n", hdr.cksum);
+    printk("Original checksum: %d\n", original_checksum);
     assert(hdr.cksum != original_checksum);
     
     printk("Checksum computation test passed!\n");
