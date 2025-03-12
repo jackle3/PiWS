@@ -47,3 +47,6 @@ uint32_t ipv4_pseudo_checksum(const struct ipv4_header *hdr);
 void ipv4_compute_checksum(struct ipv4_header *hdr);
 void ipv4_parse(struct ipv4_header *hdr, void *parser);
 void ipv4_serialize(const struct ipv4_header *hdr, void *serializer);
+
+/* Calculate 16-bit one's complement sum over data */
+uint16_t ones_complement_sum(const uint16_t *data, size_t len_bytes);

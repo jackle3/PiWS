@@ -51,7 +51,7 @@ uint32_t ipv4_pseudo_checksum(const struct ipv4_header *hdr) {
  * 2. Be easy to compute incrementally
  * 3. Be position-independent
  */
-static uint16_t ones_complement_sum(const uint16_t *data, size_t len_bytes) {
+uint16_t ones_complement_sum(const uint16_t *data, size_t len_bytes) {
     uint32_t sum = 0;
     size_t i;
     

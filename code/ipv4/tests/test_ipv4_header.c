@@ -45,6 +45,12 @@ static void test_checksum(void) {
     uint16_t original_checksum = hdr.cksum;
     ipv4_compute_checksum(&hdr);
     int checksum_stable = (hdr.cksum == original_checksum);
+
+    // Verify the one's complement sum over the entire header equals 0xFFFF
+    uint16_t sum = ones_complement_sum((uint16_t*)&hdr, hdr.hlen * 4);
+    int checksum_valid = (sum == 0xFFFF);
+
+
     
     test_result("Checksum Calculation", checksum_nonzero && checksum_stable);
 }
