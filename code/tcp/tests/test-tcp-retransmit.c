@@ -3,6 +3,24 @@
 #include "nrf-test.h"
 #include "tcp.h"
 
+// Helper function to print TCP state
+static const char* tcp_state_str(enum tcp_state state) {
+    switch (state) {
+        case TCP_CLOSED: return "CLOSED";
+        case TCP_LISTEN: return "LISTEN";
+        case TCP_SYN_SENT: return "SYN_SENT";
+        case TCP_SYN_RECEIVED: return "SYN_RECEIVED";
+        case TCP_ESTABLISHED: return "ESTABLISHED";
+        case TCP_FIN_WAIT_1: return "FIN_WAIT_1";
+        case TCP_FIN_WAIT_2: return "FIN_WAIT_2";
+        case TCP_CLOSE_WAIT: return "CLOSE_WAIT";
+        case TCP_LAST_ACK: return "LAST_ACK";
+        case TCP_CLOSING: return "CLOSING";
+        case TCP_TIME_WAIT: return "TIME_WAIT";
+        default: return "UNKNOWN";
+    }
+}
+
 static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     // Create TCP connections
     trace("Creating TCP connections...\n");
@@ -92,10 +110,60 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     assert(read == strlen(test_msg));
     assert(memcmp(buffer, test_msg, strlen(test_msg)) == 0);
 
-    // Clean up
-    trace("Closing connections...\n");
+    // Clean up with proper closing handshake
+    trace("Properly closing connections...\n");
+    
+    // Initiate closing from the client side
+    trace("Client initiating close...\n");
     tcp_close(client);
-    tcp_close(server);
+    trace("Client state: %s\n", tcp_state_str(client->state));
+    
+    // Process the closing handshake until both sides are closed
+    trace("Processing closing handshake...\n");
+    uint32_t closing_timeout = timer_get_usec() + 5000000; // 5 second timeout
+    
+    while ((client->state != TCP_CLOSED || server->state != TCP_CLOSED) 
+           && timer_get_usec() < closing_timeout) {
+        // Process client side
+        tcp_process(client);
+        
+        // Process server side
+        tcp_process(server);
+        
+        // If server reaches CLOSE_WAIT, call tcp_close to complete the closing
+        if (server->state == TCP_CLOSE_WAIT) {
+            trace("Server received FIN, completing close...\n");
+            tcp_close(server);
+        }
+        
+        // Randomly drop some FIN/ACK packets to test retransmission during closing
+        if (packet_counter % 5 == 0) {
+            trace("[SIMULATED DROP] Skipping a packet processing cycle during closing\n");
+            packet_counter++;
+            continue;
+        }
+        
+        // Trace current states
+        trace("Client: %s, Server: %s\n", 
+              tcp_state_str(client->state), tcp_state_str(server->state));
+              
+        // Accelerate TIME_WAIT if needed
+        if (client->state == TCP_TIME_WAIT) {
+            client->fin_time = 0;
+        }
+        if (server->state == TCP_TIME_WAIT) {
+            server->fin_time = 0;
+        }
+        
+        packet_counter++;
+    }
+    
+    trace("Connection closing complete. Final states:\n");
+    trace("Client: %s, Server: %s\n", 
+          tcp_state_str(client->state), tcp_state_str(server->state));
+    
+    assert(client->state == TCP_CLOSED);
+    assert(server->state == TCP_CLOSED);
 }
 
 void notmain(void) {
