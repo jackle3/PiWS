@@ -14,7 +14,7 @@ static cq_t rx_queue; // Queue for received messages
 static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
 {
     uint8_t dgram_serialized[PAYLOAD_SIZE];
-    unsigned dst_addr = client_addr; // Address to send to
+    unsigned dst_addr = client_addr_2; // Address to send to
     struct rcp_datagram segment = {head, NULL};
     int i = 0;
     uint8_t *data = kmalloc(220);
