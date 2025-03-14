@@ -340,6 +340,9 @@ int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram)
     if (!tcp || !dgram)
         return -1;
 
+    // Only the server should receive packets
+    assert(tcp->is_server);
+
     uint8_t buffer[RCP_TOTAL_SIZE];
 
     // Try to receive data with a short timeout

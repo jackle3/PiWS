@@ -10,9 +10,7 @@
 
 static uint32_t router_server_pipe_addr = router_server_addr + MY_RCP_ADDR * 2;
 
-static void
-test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uint8_t rcp_dst)
-{
+static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uint8_t rcp_dst) {
     // Create TCP connections
 
     // Server is host, remote is client
@@ -27,8 +25,7 @@ test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uint8_t rcp_dst
 
     // Handle handshake
     trace("Handshaking...\n");
-    while (server->state != TCP_ESTABLISHED || client->state != TCP_ESTABLISHED)
-    {
+    while (server->state != TCP_ESTABLISHED || client->state != TCP_ESTABLISHED) {
         tcp_server_handshake(server);
         tcp_client_handshake(client);
     }
@@ -50,124 +47,98 @@ test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uint8_t rcp_dst
     char received_buffer[BUFFER_SIZE];
     size_t buffer_current_length = 0;
 
-    while (1)
-    {
-        if (uart_has_data())
-        {
-            while (1)
-            {
+    while (1) {
+        if (uart_has_data()) {
+            while (1) {
                 char c = uart_get8();
                 // if newline, check if there's more lines afterwards, otherwise break
-                if (c == '\n')
-                {
+                if (c == '\n') {
                     delay_us(100);
-                    if (!uart_has_data())
-                    {
+                    if (!uart_has_data()) {
                         break;
                     }
                 }
                 buffer[buffer_current_length++] = c;
-                if (buffer_current_length >= BUFFER_SIZE)
-                {
+                if (buffer_current_length >= BUFFER_SIZE) {
                     break;
                 }
             }
         }
+
         // if message is "quit", break
-        if (buffer_current_length == 4 && strncmp(buffer, "quit", 4) == 0)
-        {
+        if (buffer_current_length == 4 && strncmp(buffer, "quit", 4) == 0) {
             break;
         }
+
         // Write more data if there's space in the bytestream
         size_t remaining = buffer_current_length;
-        if (remaining > 0)
-        {
-            size_t written =
-                bytestream_write(client->sender->outgoing, buffer, remaining);
+        if (remaining > 0) {
+            size_t written = bytestream_write(client->sender->outgoing, buffer, remaining);
             bytes_written += written;
             buffer_current_length = 0;
-            // if (written > 0)
-            // {
-            //     trace("Wrote %d more bytes to bytestream, total written: %d\n", written,
-            //           bytes_written);
-            // }
         }
 
         // Client side: send segment if available
-        sender_fill_window(client->sender); // Fill window with new segments
+        sender_fill_window(client->sender);  // Fill window with new segments
         const struct unacked_segment *seg = sender_next_segment(client->sender);
-        if (seg)
-        {
-
-            // trace("Client sending segment seq=%d to NRF addr %x...\n\t%s\n", seg->seqno,
-            //       client->remote_addr, seg->data);
+        if (seg) {
             tcp_send_segment(client, seg);
         }
 
-        // Server side: receive packet
+        // Server side: receive packet and process it
         struct rcp_datagram dgram = rcp_datagram_init();
-        if (tcp_recv_packet(server, &dgram) == 0)
-        {
-            int result = receiver_process_segment(server->receiver, &dgram);
-            // trace("Server processed segment seq=%d with result %d\n", dgram.header.seqno, result);
-            if (result >= 0)
-            { // Process succeeded or was retransmission
-                // trace("Server received segment seq=%d from RCP addr %x, next_seqno=%d\n",
-                //       dgram.header.seqno, dgram.header.src, server->receiver->reasm->next_seqno);
+        if (tcp_recv_packet(server, &dgram) == 0) {
+            if (rcp_has_flag(&dgram.header, RCP_FLAG_ACK)) {
+                sender_process_ack(client->sender, &dgram.header);
+            } else {
+                int result = receiver_process_segment(server->receiver, &dgram);
+                if (result >= 0) {  // Process succeeded or was retransmission
+                    struct rcp_header ack = {0};
 
-                struct rcp_header ack = {0};
-                receiver_get_ack(server->receiver, &ack);
-                // trace("Server sending ACK for seq=%d to RCP addr %x\n", ack.ackno, ack.src);
-                tcp_send_ack(server, &ack);
+                    // The server is the one receiving and processing the ACK
+                    receiver_get_ack(server->receiver, &ack);
+
+                    // The client will send the ACK back to the other person's server
+                    tcp_send_ack(client, &ack);
+                }
             }
+
+            // Read all available data from server's incoming bytestream
+            size_t read =
+                bytestream_read(server->receiver->incoming, received_buffer, RECEIVER_BUFFER_SIZE);
+            bytes_read += read;
+            if (read > 0) {
+                received_buffer[read] = '\0';
+                uart_putk("From ");
+                uart_putk(other_addr_str);
+                uart_putk(": ");
+                uart_putk(received_buffer);
+                uart_putk("\n");
+            }
+            // if (read > 0)
+            // {
+            //     trace("Read %d more bytes from bytestream, total read: %d\n", read, bytes_read);
+            // }
+
+            // Client checks for retransmission; resends data packets if so
+            tcp_check_retransmit(client, timer_get_usec());
         }
 
-        // Client side: check for ACK
-        struct rcp_datagram ack = rcp_datagram_init();
-        if (tcp_recv_packet(client, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK))
-        {
-            // trace("Client received ACK for seq=%d from RCP addr %x\n", ack.header.ackno,
-            //       ack.header.src);
-            sender_process_ack(client->sender, &ack.header);
-        }
+        // trace("Finished sending data\n\n");
 
-        // Read all available data from server's incoming bytestream
-        size_t read =
-            bytestream_read(server->receiver->incoming, received_buffer, RECEIVER_BUFFER_SIZE);
-        bytes_read += read;
-        if (read > 0)
-        {
-            received_buffer[read] = '\0';
-            uart_putk("From ");
-            uart_putk(other_addr_str);
-            uart_putk(": ");
-            uart_putk(received_buffer);
-            uart_putk("\n");
-        }
-        // if (read > 0)
-        // {
-        //     trace("Read %d more bytes from bytestream, total read: %d\n", read, bytes_read);
-        // }
+        // Verify received data
+        // printk("Server received: %s\n\n", received_buffer);
+        // assert(bytes_read == msg_len);
+        // assert(memcmp(buffer, test_msg, msg_len) == 0);
 
-        // Client checks for retransmission; resends data packets if so
-        tcp_check_retransmit(client, timer_get_usec());
+        // Clean up
+        trace("Closing connections...\n");
+        tcp_close(client);
+        tcp_close(server);
     }
-
-    // trace("Finished sending data\n\n");
-
-    // Verify received data
-    // printk("Server received: %s\n\n", received_buffer);
-    // assert(bytes_read == msg_len);
-    // assert(memcmp(buffer, test_msg, msg_len) == 0);
-
-    // Clean up
-    trace("Closing connections...\n");
-    tcp_close(client);
-    tcp_close(server);
 }
 
-void notmain(void)
-{
+void notmain(void) {
     kmalloc_init(64);
     uart_init();
     uint8_t rcp_dst = config_init_hw();
