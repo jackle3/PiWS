@@ -3,8 +3,8 @@
 # PROGS += tests/test-tcp-over-nrf.c
 # PROGS += tests/test-tcp-retransmit.c
 # PROGS += tests/test-tcp-long-messages.c
-# PROGS += tests/test-tcp-long-retransmit.c
-PROGS += tests/tcp-transmit-msg.c
+PROGS += tests/test-tcp-long-retransmit.c
+# PROGS += tests/tcp-transmit-msg.c
 # PROGS += tests/tcp-uart.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a

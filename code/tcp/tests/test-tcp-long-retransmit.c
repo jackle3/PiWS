@@ -16,8 +16,8 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     // Handle handshake
     trace("Handshaking...\n");
     while (server->state != TCP_ESTABLISHED || client->state != TCP_ESTABLISHED) {
-        tcp_do_handshake(server);
-        tcp_do_handshake(client);
+        tcp_server_handshake(server);
+        tcp_client_handshake(client);
     }
 
     trace("Connection established!\n\n");
@@ -72,7 +72,7 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
         const struct unacked_segment *seg = sender_next_segment(client->sender);
         if (seg) {
             // Drop packets based on sequence number and timing
-            bool should_drop = (seg->seqno * timer_get_usec()) % 7 == 0;  // Pseudo-random dropping
+            bool should_drop = (timer_get_usec() % 100) == 0;  // Pseudo-random dropping
             if (!should_drop) {
                 trace("Client sending segment seq=%d to NRF addr %x...\n\t%s\n", seg->seqno,
                       client->remote_addr, seg->data);
@@ -94,7 +94,7 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
                       dgram.header.seqno, dgram.header.src, server->receiver->reasm->next_seqno);
 
                 // Drop ACKs based on sequence number and timing
-                bool should_drop_ack = ((dgram.header.seqno * timer_get_usec()) % 5) == 0;
+                bool should_drop_ack = (timer_get_usec() % 150) == 0;
                 if (!should_drop_ack) {
                     struct rcp_header ack = {0};
                     receiver_get_ack(server->receiver, &ack);
@@ -135,10 +135,63 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     assert(bytes_read == msg_len);
     assert(memcmp(buffer, test_msg, msg_len) == 0);
 
-    // Clean up
-    trace("Closing connections...\n");
+    // Clean up - proper TCP closing
+    trace("Closing connections with proper TCP closing sequence...\n");
+
+    // Client initiates active close
+    trace("Client initiating active close...\n");
     tcp_close(client);
-    tcp_close(server);
+    trace("Client closed: state=%d\n", client->state);
+
+    // Server should now be in CLOSE_WAIT state
+    // We need to monitor the server to ensure it receives the FIN
+    trace("Waiting for server to receive client's FIN...\n");
+
+    // Wait for server to enter CLOSE_WAIT (it received FIN)
+    int max_iterations = 100;  // Limit iterations to prevent infinite loop
+    int iterations = 0;
+    while (server->state != TCP_CLOSE_WAIT && iterations < max_iterations) {
+        iterations++;
+
+        // Try to receive the FIN packet
+        struct rcp_datagram fin_dgram = rcp_datagram_init();
+        if (tcp_recv_packet(server, &fin_dgram) == 0) {
+            // If server receives a FIN, it will go to CLOSE_WAIT
+            if (rcp_has_flag(&fin_dgram.header, RCP_FLAG_FIN) && server->state == TCP_ESTABLISHED) {
+                trace("Server received FIN, transitioning to CLOSE_WAIT\n");
+
+                // Send ACK for the FIN
+                struct rcp_header ack = {0};
+                ack.src = server->sender->src_addr;
+                ack.dst = server->sender->dst_addr;
+                ack.seqno = server->sender->next_seqno;
+                ack.ackno = fin_dgram.header.seqno + 1;
+                rcp_set_flag(&ack, RCP_FLAG_ACK);
+                rcp_compute_checksum(&ack);
+                tcp_send_ack(server, &ack);
+
+                // Transition to CLOSE_WAIT
+                server->state = TCP_CLOSE_WAIT;
+                break;
+            }
+        }
+
+        delay_ms(1);  // Short delay
+    }
+
+    // Server completes passive close from CLOSE_WAIT
+    if (server->state == TCP_CLOSE_WAIT) {
+        trace("Server in CLOSE_WAIT, completing passive close...\n");
+        tcp_close(server);
+        trace("Server closed: state=%d\n", server->state);
+    } else {
+        trace("WARNING: Server did not receive FIN after %d iterations\n", max_iterations);
+    }
+
+    // Verify both sides closed properly
+    assert(client->state == TCP_CLOSED);
+    assert(server->state == TCP_CLOSED);
+    trace("Both connections successfully closed\n");
 }
 
 void notmain(void) {

@@ -16,6 +16,7 @@ struct unacked_segment {
     uint16_t seqno;                 // Sequence number
     uint32_t send_time;             // Time when segment was sent
     bool acked;                     // Whether segment has been acknowledged
+    bool is_fin;                    // Whether this segment carries a FIN flag
 };
 
 // Sender structure

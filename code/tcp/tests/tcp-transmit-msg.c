@@ -121,21 +121,75 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
     assert(bytes_read == msg_len);
     assert(memcmp(buffer, test_msg, msg_len) == 0);
 
-    // Clean up
-    output("Closing connections...\n");
+    // Clean up - proper TCP closing
+    output("Starting proper TCP closing sequence...\n");
+    
+    // Client initiates active close
+    output("Client initiating active close...\n");
     tcp_close(client);
-    tcp_close(server);
+    output("Client closed: state=%d\n", client->state);
+    
+    // Server should now be in CLOSE_WAIT state
+    // We need to monitor the server to ensure it receives the FIN
+    output("Waiting for server to receive client's FIN...\n");
+    
+    // Wait for server to enter CLOSE_WAIT (it received FIN)
+    int max_iterations = 100;  // Limit iterations to prevent infinite loop
+    int iterations = 0;
+    while (server->state != TCP_CLOSE_WAIT && iterations < max_iterations) {
+        iterations++;
+        
+        // Try to receive the FIN packet
+        struct rcp_datagram fin_dgram = rcp_datagram_init();
+        if (tcp_recv_packet(server, &fin_dgram) == 0) {
+            // If server receives a FIN, it will go to CLOSE_WAIT 
+            if (rcp_has_flag(&fin_dgram.header, RCP_FLAG_FIN) && 
+                server->state == TCP_ESTABLISHED) {
+                output("Server received FIN, transitioning to CLOSE_WAIT\n");
+                
+                // Send ACK for the FIN
+                struct rcp_header ack = {0};
+                ack.src = server->sender->src_addr;
+                ack.dst = server->sender->dst_addr;
+                ack.seqno = server->sender->next_seqno;
+                ack.ackno = fin_dgram.header.seqno + 1;
+                rcp_set_flag(&ack, RCP_FLAG_ACK);
+                rcp_compute_checksum(&ack);
+                tcp_send_ack(server, &ack);
+                
+                // Transition to CLOSE_WAIT
+                server->state = TCP_CLOSE_WAIT;
+                break;
+            }
+        }
+        
+        delay_ms(1);  // Short delay
+    }
+    
+    // Server completes passive close from CLOSE_WAIT
+    if (server->state == TCP_CLOSE_WAIT) {
+        output("Server in CLOSE_WAIT, completing passive close...\n");
+        tcp_close(server);
+        output("Server closed: state=%d\n", server->state);
+    } else {
+        output("WARNING: Server did not receive FIN after %d iterations\n", max_iterations);
+    }
+    
+    // Verify both sides closed properly
+    assert(client->state == TCP_CLOSED);
+    assert(server->state == TCP_CLOSED);
+    output("Both connections successfully closed!\n");
 }
 
 void notmain(void) {
     kmalloc_init(64);
 
-    output("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr, RCP_TOTAL_SIZE);
-    nrf_t *s = server_mk_noack(server_addr, RCP_TOTAL_SIZE);
+    output("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr_2, RCP_TOTAL_SIZE);
+    nrf_t *s = server_mk_noack(server_addr_2, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable server config:\n", s);
 
-    output("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr, RCP_TOTAL_SIZE);
-    nrf_t *c = client_mk_noack(client_addr, RCP_TOTAL_SIZE);
+    output("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr_2, RCP_TOTAL_SIZE);
+    nrf_t *c = client_mk_noack(client_addr_2, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable client config:\n", c);
 
     // Check compatibility
