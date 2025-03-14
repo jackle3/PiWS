@@ -25,5 +25,7 @@ typedef struct {
 int spi_n_transfer(spi_t s, uint8_t rx[], const uint8_t tx[], unsigned nbytes);
 spi_t spi_n_init(unsigned chip_select, unsigned clk_div);
 
+// Daniel mode SPI
+static unsigned cs;
 
 #endif

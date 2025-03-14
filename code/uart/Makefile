@@ -1,5 +1,5 @@
 # Include both numbered tests and our specific test file
-PROGS= 2-uart-recv.c
+PROGS= 1-serialize-packets.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 

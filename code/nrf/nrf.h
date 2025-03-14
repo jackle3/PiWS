@@ -48,6 +48,7 @@ typedef struct {
             int_pin;    // GPIO pin used for interrupts.  we don't use today.
     uint8_t nbytes;     // how many bytes the the packet is.
     uint8_t channel;    // what MHz channel the RF is using.
+    
 } nrf_conf_t;
 
 
@@ -99,6 +100,7 @@ typedef struct nrf {
 // useful extension is to have multiple pipes so at least one can be
 // unacked (for broadcast updates from a server) and some acked.
 nrf_t * nrf_init(const nrf_conf_t c, uint32_t rxaddr, unsigned acked_p);
+nrf_t * nrf_init_piped(const nrf_conf_t c, uint32_t rxaddr);
 nrf_t * staff_nrf_init(const nrf_conf_t c, uint32_t rxaddr, unsigned acked_p);
 
 static inline nrf_t *nrf_init_acked(nrf_conf_t c, uint32_t rxaddr) {

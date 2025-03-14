@@ -1,8 +1,10 @@
-PROGS += $(wildcard tests/[0123]-*.c)
+# PROGS += $(wildcard tests/[0123]-*.c)
+# PROGS := tests/2-ping-pong-ack-4bytes.c
+PROGS := tests/5-multi-pipe.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
-COMMON_SRC := nrf-hw-support.c nrf-public.c nrf-driver.c
+COMMON_SRC := nrf-hw-support.c nrf-public.c nrf-driver.c #my_spi.c
 # COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp-datagram.c
 
 # # Add RCP include path
