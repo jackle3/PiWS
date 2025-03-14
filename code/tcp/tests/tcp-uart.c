@@ -12,10 +12,10 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf)
     trace("Creating TCP connections...\n");
 
     // Server is host, remote is client
-    struct tcp_connection *server = tcp_init(server_nrf, client_nrf->rxaddr, true);
+    struct tcp_connection *server = tcp_init(server_nrf, client_addr_2, true);
 
     // Client is host, remote is server
-    struct tcp_connection *client = tcp_init(client_nrf, server_nrf->rxaddr, false);
+    struct tcp_connection *client = tcp_init(client_nrf, server_addr_2, false);
 
     // Handle handshake
     trace("Handshaking...\n");
