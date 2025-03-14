@@ -58,11 +58,11 @@
 #   define mask_int        (set_bit(6)|set_bit(5)|set_bit(4))
 enum {
     // pre-computed: can write into NRF_CONFIG to enable TX.
-    tx_config = enable_crc | crc_two_byte | pwr_up | mask_int,
+    tx_config = pwr_up | mask_int,
     // pre-computed: can write into NRF_CONFIG to enable RX.
     rx_config = tx_config  | set_bit(PRIM_RX),
     // pre-computed: can write into NRF_CONFIG to enable RX w/o CRC
-    ft_rx_config = pwr_up | mask_int | set_bit(PRIM_RX)
+    // ft_rx_config = pwr_up | mask_int | set_bit(PRIM_RX)
 } ;
 
 // set <ce> low: we use a helper so can
@@ -390,12 +390,12 @@ nrf_t *nrf_init_piped(nrf_conf_t c, uint32_t rxaddr) {
 
     // pg 22: now go from <Standby-I> to RX mode: invariant = we are always in RX except for the 
     // small amount of time we need to switch to TX to send a message.
-    nrf_put8_chk(n, NRF_CONFIG, ft_rx_config);
+    nrf_put8_chk(n, NRF_CONFIG, rx_config);
     ce_hi(c.ce_pin);
 
 
     // should be true after setup.
-    nrf_opt_assert(n, nrf_get8(n, NRF_CONFIG) == ft_rx_config);
+    nrf_opt_assert(n, nrf_get8(n, NRF_CONFIG) == rx_config);
     nrf_opt_assert(n, !nrf_pipe_is_enabled(n, 0));
     nrf_opt_assert(n, nrf_pipe_is_enabled(n, 1));
     nrf_opt_assert(n, !nrf_pipe_is_acked(n, 1));
@@ -603,7 +603,7 @@ int nrf_tx_send_noack(nrf_t *n, uint32_t txaddr,
 //     interrupts.
 int nrf_get_pkts(nrf_t *n) {
     // you can't check for packets unless in RX mode.
-    nrf_opt_assert(n, (nrf_get8(n, NRF_CONFIG) == ft_rx_config || nrf_get8(n, NRF_CONFIG) == rx_config));
+    nrf_opt_assert(n, nrf_get8(n, NRF_CONFIG) == rx_config);
     if(!nrf_rx_has_packet(n)) 
         return 0; 
 
@@ -647,6 +647,6 @@ int nrf_get_pkts(nrf_t *n) {
         //       a packet arrives b/n (1) and (2)
     } while (!nrf_rx_fifo_empty(n));
 
-    nrf_opt_assert(n, (nrf_get8(n, NRF_CONFIG) == ft_rx_config || nrf_get8(n, NRF_CONFIG) == rx_config));
+    nrf_opt_assert(n, nrf_get8(n, NRF_CONFIG) == rx_config);
     return res;
 }
