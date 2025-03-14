@@ -6,7 +6,7 @@
 
 #define BUFFER_SIZE 256
 
-#define MY_RCP_ADDR RCP_ADDR
+#define MY_RCP_ADDR RCP_ADDR_2
 
 static uint32_t router_server_pipe_addr = router_server_addr + MY_RCP_ADDR * 2;
 
