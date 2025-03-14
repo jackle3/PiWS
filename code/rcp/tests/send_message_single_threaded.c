@@ -80,7 +80,7 @@ static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
                 // print payload from rcp datagram
                 struct rcp_datagram temp = rcp_datagram_init();
                 rcp_datagram_parse(&temp, dgram_serialized, PAYLOAD_SIZE);
-                trace("sent packet %s\n", temp.payload);
+                output("SENT: %s\n", temp.payload);
             }
         }
 
@@ -89,7 +89,7 @@ static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
         {
             struct rcp_datagram temp = rcp_datagram_init();
             rcp_datagram_parse(&temp, dgram_serialized, PAYLOAD_SIZE);
-            trace("received packet %s\n", temp.payload);
+            output("RECEIVED: %s\n", temp.payload);
             // Push received data back to queue to keep it looping
             while (!cq_push_n(&rx_queue, dgram_serialized, PAYLOAD_SIZE))
             {
