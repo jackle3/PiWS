@@ -130,12 +130,11 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uin
         // printk("Server received: %s\n\n", received_buffer);
         // assert(bytes_read == msg_len);
         // assert(memcmp(buffer, test_msg, msg_len) == 0);
-
-        // Clean up
-        trace("Closing connections...\n");
-        tcp_close(client);
-        tcp_close(server);
     }
+    // Clean up
+    trace("Closing connections...\n");
+    tcp_close(client);
+    tcp_close(server);
 }
 
 void notmain(void) {
