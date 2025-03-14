@@ -6,7 +6,7 @@
 
 /* User configurations for the header info */
 void config_init_sw(sw_uart_t u);
-void config_init_hw();
+uint8_t config_init_hw();
 
 /* Receive user input and return a rcp packet*/
 struct rcp_datagram create_packet_sw(sw_uart_t u);

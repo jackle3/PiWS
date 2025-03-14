@@ -14,36 +14,41 @@
 //  0xe1e1e1,
 //  0xd3d3d3,
 
-enum {
+enum
+{
     server_addr = 0xd5d5d5,
     client_addr = 0xe5e5e5,
 
     server_addr_2 = 0xe3e3e3,
     client_addr_2 = 0xe7e7e7,
+
+    router_server_addr = 0xd3d3d3,
+    router_client_addr = 0xe1e1e1,
 };
 
-enum {
-    nrf_default_nbytes              = 4,            // 4 byte packets.
+enum
+{
+    nrf_default_nbytes = 4, // 4 byte packets.
 
     // allegedly semi-safe from interference
     // RF is really sensitive.   maybe worth writing the code to find.
     // bounce around, send/recv and check.
-    nrf_default_channel             = 113,          
+    nrf_default_channel = 113,
 
     // lower data rate ==> longer distance.
-    nrf_default_data_rate           = nrf_2Mbps,    
+    nrf_default_data_rate = nrf_2Mbps,
 
     // this is full power.
-    nrf_default_db                  = dBm_0,
+    nrf_default_db = dBm_0,
 
     // 6 retran attempts
-    nrf_default_retran_attempts     = 6,            
+    nrf_default_retran_attempts = 6,
 
     // 2000 usec retran delay
-    nrf_default_retran_delay        = 2000,         
+    nrf_default_retran_delay = 2000,
 
     // if we increase?  doesn't seem to matter; 4,5 also legal.
-    nrf_default_addr_nbytes         = 3,
+    nrf_default_addr_nbytes = 3,
 };
 
 #endif

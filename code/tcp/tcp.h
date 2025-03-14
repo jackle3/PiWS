@@ -9,39 +9,41 @@
 #define RCP_ADDR_2 0x2
 
 // Time to wait in TIME_WAIT state (in microseconds)
-#define TCP_TIME_WAIT_US (2 * 1000000)  // 2 seconds MSL (Maximum Segment Lifetime)
+#define TCP_TIME_WAIT_US (2 * 1000000) // 2 seconds MSL (Maximum Segment Lifetime)
 
 // Timeout values in microseconds
-#define RETRANSMIT_TIMEOUT_US (50 * 1000)  // 50ms in microseconds
+#define RETRANSMIT_TIMEOUT_US (50 * 1000) // 50ms in microseconds
 
 // TCP connection state
-enum tcp_state {
+enum tcp_state
+{
     TCP_CLOSED,
     TCP_LISTEN,
     TCP_SYN_SENT,
     TCP_SYN_RECEIVED,
     TCP_ESTABLISHED,
-    TCP_FIN_WAIT_1,  // Active close: Sent FIN, waiting for ACK and FIN
-    TCP_FIN_WAIT_2,  // Active close: Received ACK for FIN, waiting for FIN
-    TCP_CLOSE_WAIT,  // Passive close: Received FIN, sent ACK, application not closed yet
-    TCP_LAST_ACK,    // Passive close: Received FIN, sent ACK, sent FIN, waiting for ACK
-    TCP_CLOSING,     // Active close: Sent FIN, received FIN but not ACK, waiting for ACK
-    TCP_TIME_WAIT    // Either close: Received FIN, sent ACK, waiting for timeout
+    TCP_FIN_WAIT_1, // Active close: Sent FIN, waiting for ACK and FIN
+    TCP_FIN_WAIT_2, // Active close: Received ACK for FIN, waiting for FIN
+    TCP_CLOSE_WAIT, // Passive close: Received FIN, sent ACK, application not closed yet
+    TCP_LAST_ACK,   // Passive close: Received FIN, sent ACK, sent FIN, waiting for ACK
+    TCP_CLOSING,    // Active close: Sent FIN, received FIN but not ACK, waiting for ACK
+    TCP_TIME_WAIT   // Either close: Received FIN, sent ACK, waiting for timeout
 };
 
 // TCP connection structure
-struct tcp_connection {
-    struct sender *sender;      // Sender for outgoing data
-    struct receiver *receiver;  // Receiver for incoming data
-    nrf_t *nrf;                 // NRF radio interface
-    uint32_t remote_addr;       // Remote address
-    enum tcp_state state;       // Current connection state
-    bool is_server;             // Whether this is server or client (client sends SYN first)
-    uint32_t last_time;         // Last activity timestamp
+struct tcp_connection
+{
+    struct sender *sender;     // Sender for outgoing data
+    struct receiver *receiver; // Receiver for incoming data
+    nrf_t *nrf;                // NRF radio interface
+    uint32_t remote_addr;      // Remote address
+    enum tcp_state state;      // Current connection state
+    bool is_server;            // Whether this is server or client (client sends SYN first)
+    uint32_t last_time;        // Last activity timestamp
 };
 
 // Initialize TCP connection
-struct tcp_connection *tcp_init(nrf_t *nrf, uint32_t remote_addr, bool is_server);
+struct tcp_connection *tcp_init(nrf_t *nrf, uint8_t dst_rcp, bool is_server, uint32_t next_hop);
 
 // Send data
 int tcp_send(struct tcp_connection *tcp, const void *data, size_t len);
@@ -80,4 +82,5 @@ int tcp_do_close(struct tcp_connection *tcp);
 int tcp_send_fin(struct tcp_connection *tcp);
 
 uint8_t nrf_to_rcp_addr(uint32_t nrf_addr);
-uint32_t rcp_to_nrf_addr(uint8_t rcp_addr);
+uint32_t rcp_to_nrf_server_addr(uint8_t rcp_addr);
+uint32_t rcp_to_nrf_client_addr(uint8_t rcp_addr);

@@ -6,17 +6,21 @@
 
 #define BUFFER_SIZE 256
 
-static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf)
+#define MY_RCP_ADDR RCP_ADDR
+
+static uint32_t router_server_pipe_addr = router_server_addr + MY_RCP_ADDR * 2;
+
+static void
+test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uint8_t rcp_dst)
 {
     // Create TCP connections
-    // trace("Creating TCP connections...\n");
 
     // Server is host, remote is client
-    struct tcp_connection *server = tcp_init(server_nrf, client_addr, true);
+    struct tcp_connection *server = tcp_init(server_nrf, rcp_dst, true, router_client_addr);
 
     // Client is host, remote is server
-    struct tcp_connection *client = tcp_init(client_nrf, server_addr, false);
-    size_t other_addr = nrf_to_rcp_addr(client_addr);
+    struct tcp_connection *client = tcp_init(client_nrf, rcp_dst, false, router_server_pipe_addr);
+    size_t other_addr = rcp_dst;
     char *other_addr_str = rcp_to_string(other_addr);
     size_t my_addr = nrf_to_rcp_addr(server_nrf->rxaddr);
     char *my_addr_str = rcp_to_string(my_addr);
@@ -166,14 +170,17 @@ void notmain(void)
 {
     kmalloc_init(64);
     uart_init();
-    config_init_hw(); // TODO: actually have destination address do something
+    uint8_t rcp_dst = config_init_hw();
 
-    trace("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr_2, RCP_TOTAL_SIZE);
-    nrf_t *s = server_mk_noack(server_addr_2, RCP_TOTAL_SIZE);
+    uint32_t my_server_addr = rcp_to_nrf_server_addr(MY_RCP_ADDR);
+    uint32_t my_client_addr = rcp_to_nrf_client_addr(MY_RCP_ADDR);
+
+    trace("configuring no-ack server=[%x] with %d nbyte msgs\n", my_server_addr, RCP_TOTAL_SIZE);
+    nrf_t *s = server_mk_noack(my_server_addr, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable server config:\n", s);
 
-    trace("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr_2, RCP_TOTAL_SIZE);
-    nrf_t *c = client_mk_noack(client_addr_2, RCP_TOTAL_SIZE);
+    trace("configuring no-ack client=[%x] with %d nbyte msg\n", my_client_addr, RCP_TOTAL_SIZE);
+    nrf_t *c = client_mk_noack(my_client_addr, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable client config:\n", c);
 
     // Check compatibility
@@ -186,7 +193,7 @@ void notmain(void)
 
     // trace("Starting test...\n");
 
-    test_tcp_reliable_delivery(s, c);
+    test_tcp_reliable_delivery(s, c, rcp_dst);
 
     // Print stats
     nrf_stat_print(s, "server: done with test");
