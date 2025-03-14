@@ -1,9 +1,10 @@
 # Include both numbered tests and our specific test file
-PROGS += tests/test-tcp.c
-PROGS += tests/test-tcp-over-nrf.c
-PROGS += tests/test-tcp-retransmit.c
-PROGS += tests/test-tcp-long-messages.c
-PROGS += tests/test-tcp-long-retransmit.c
+# PROGS += tests/test-tcp.c
+# PROGS += tests/test-tcp-over-nrf.c
+# PROGS += tests/test-tcp-retransmit.c
+# PROGS += tests/test-tcp-long-messages.c
+# PROGS += tests/test-tcp-long-retransmit.c
+PROGS += tests/tcp-uart.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
@@ -14,6 +15,9 @@ COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-driver.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-hw-support.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-public.c
+
+COMMON_SRC += $(CS140E_PITCP)/code/uart/uart-to-tcp.c
+CFLAGS += -I$(CS140E_PITCP)/code/uart
 
 # Add include paths for NRF
 CFLAGS += -I$(CS140E_PITCP)/code/nrf
