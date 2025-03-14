@@ -7,7 +7,7 @@
 #include "bytestream.h"
 #include "rcp-datagram.h"
 
-#define SENDER_WINDOW_SIZE 8  // Maximum number of unacked segments
+#define SENDER_WINDOW_SIZE 32  // Maximum number of unacked segments
 
 // Structure to track unacknowledged segments
 struct unacked_segment {

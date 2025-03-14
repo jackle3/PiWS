@@ -6,7 +6,7 @@
 
 #include "bytestream.h"
 
-#define MAX_PENDING_SEGMENTS 8  // Fixed window size
+#define RECEIVER_WINDOW_SIZE 32  // Maximum number of segments in the reassembler
 
 // Structure to hold a pending segment
 struct pending_segment {
@@ -21,7 +21,7 @@ struct reassembler {
     uint16_t next_seqno;         // Next sequence number expected
     size_t capacity;             // Maximum bytes that can be buffered
     size_t bytes_pending;        // Current bytes pending in buffer
-    struct pending_segment segments[MAX_PENDING_SEGMENTS];  // Fixed window of segments
+    struct pending_segment segments[RECEIVER_WINDOW_SIZE];  // Fixed window of segments
 };
 
 // Initialize a new reassembler

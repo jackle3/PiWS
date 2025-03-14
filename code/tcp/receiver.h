@@ -8,7 +8,6 @@
 #include "rcp-datagram.h"
 #include "reassembler.h"
 
-#define RECEIVER_WINDOW_SIZE 8  // Maximum number of out-of-order segments
 #define RECEIVER_BUFFER_SIZE (RECEIVER_WINDOW_SIZE * RCP_MAX_PAYLOAD)
 
 // Receiver structure

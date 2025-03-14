@@ -15,7 +15,7 @@ struct reassembler *reassembler_init(struct bytestream *out_stream, size_t capac
 
     // Initialize all slots as empty
     memset(r->segments, 0, sizeof(r->segments));
-    for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++)
+    for (size_t i = 0; i < RECEIVER_WINDOW_SIZE; i++)
     {
         r->segments[i].data = NULL;
         r->segments[i].received = false;
@@ -29,7 +29,7 @@ static void try_write_in_order(struct reassembler *r)
     // Print current state of reassembler buffer
     // trace("[REASM] Buffer state (next_seqno=%d, bytes_pending=%d):\n",
     //       r->next_seqno, r->bytes_pending);
-    // for (size_t i = 0; i < MAX_PENDING_SEGMENTS; i++) {
+    // for (size_t i = 0; i < RECEIVER_WINDOW_SIZE; i++) {
     //     if (r->segments[i].received) {
     //         trace("  Slot %d: len=%d\n", i, r->segments[i].len);
     //     }
@@ -54,13 +54,13 @@ static void try_write_in_order(struct reassembler *r)
         r->segments[0].received = false;
 
         // Shift all segments left
-        for (size_t i = 0; i < MAX_PENDING_SEGMENTS - 1; i++)
+        for (size_t i = 0; i < RECEIVER_WINDOW_SIZE - 1; i++)
         {
             r->segments[i] = r->segments[i + 1];
         }
         // Clear the last slot
-        r->segments[MAX_PENDING_SEGMENTS - 1].data = NULL;
-        r->segments[MAX_PENDING_SEGMENTS - 1].received = false;
+        r->segments[RECEIVER_WINDOW_SIZE - 1].data = NULL;
+        r->segments[RECEIVER_WINDOW_SIZE - 1].received = false;
     }
 }
 
@@ -71,7 +71,7 @@ size_t reassembler_insert(struct reassembler *r, const uint8_t *data, size_t len
         return 0;
 
     // If this segment is too old or too far ahead, ignore it
-    if (seqno < r->next_seqno || seqno >= r->next_seqno + MAX_PENDING_SEGMENTS)
+    if (seqno < r->next_seqno || seqno >= r->next_seqno + RECEIVER_WINDOW_SIZE)
     {
         // trace("[REASM] Ignoring segment seq=%d (window: %d-%d)\n",
         //       seqno, r->next_seqno, r->next_seqno + MAX_PENDING_SEGMENTS - 1);

@@ -70,8 +70,8 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
         sender_fill_window(client->sender);  // Fill window with new segments
         const struct unacked_segment *seg = sender_next_segment(client->sender);
         if (seg) {
-            output("Client sending segment seq=%d to NRF addr %x...\n", seg->seqno,
-                   client->remote_addr);
+            // output("Client sending segment seq=%d to NRF addr %x...\n", seg->seqno,
+            //        client->remote_addr);
             tcp_send_segment(client, seg);
         }
 
@@ -82,12 +82,12 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
             // output("Server processed segment seq=%d with result %d\n", dgram.header.seqno,
             // result);
             if (result >= 0) {  // Process succeeded or was retransmission
-                output("    Server received segment seq=%d from RCP addr %x, next_seqno=%d\n",
-                       dgram.header.seqno, dgram.header.src, server->receiver->reasm->next_seqno);
+                // output("    Server received segment seq=%d from RCP addr %x, next_seqno=%d\n",
+                //        dgram.header.seqno, dgram.header.src, server->receiver->reasm->next_seqno);
 
                 struct rcp_header ack = {0};
                 receiver_get_ack(server->receiver, &ack);
-                output("    Server sending ACK for seq=%d to RCP addr %x\n", ack.ackno, ack.src);
+                // output("    Server sending ACK for seq=%d to RCP addr %x\n", ack.ackno, ack.src);
                 tcp_send_ack(server, &ack);
             }
         }
@@ -95,8 +95,8 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
         // Client side: check for ACK
         struct rcp_datagram ack = rcp_datagram_init();
         if (tcp_recv_packet(client, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
-            output("Client received ACK for seq=%d from RCP addr %x\n", ack.header.ackno,
-                   ack.header.src);
+            // output("Client received ACK for seq=%d from RCP addr %x\n", ack.header.ackno,
+            //        ack.header.src);
             sender_process_ack(client->sender, &ack.header);
         }
 
@@ -106,7 +106,7 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf) {
             bytestream_read(server->receiver->incoming, buffer + bytes_read, remaining_to_read);
         bytes_read += read;
         if (read > 0) {
-            output("Read %d more bytes from bytestream, total read: %d\n", read, bytes_read);
+            // output("Read %d more bytes from bytestream, total read: %d\n", read, bytes_read);
         }
 
         // Client checks for retransmission; resends data packets if so
