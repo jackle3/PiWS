@@ -65,7 +65,10 @@ client_mk_ack(uint32_t rxaddr, uint32_t nbytes) {
 }
 static inline nrf_t *
 client_mk_noack(uint32_t rxaddr, uint32_t nbytes) {
-    return nrf_init_piped(client_conf(nbytes), rxaddr);
     return client_mk(rxaddr, nbytes, 0);
+}
+static inline nrf_t *
+router_mk_noack(uint32_t rxaddr, uint32_t nbytes) {
+    return nrf_init_piped(server_conf(nbytes), rxaddr);
 }
 #endif
