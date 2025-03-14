@@ -26,8 +26,8 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf, uin
     // Handle handshake
     trace("Handshaking...\n");
     while (server->state != TCP_ESTABLISHED || client->state != TCP_ESTABLISHED) {
-        tcp_server_handshake(server);
-        tcp_client_handshake(client);
+        tcp_server_handshake(server, client);
+        tcp_client_handshake(client, server);
     }
 
     trace("Connection established to %s!\n\n", other_addr_str);

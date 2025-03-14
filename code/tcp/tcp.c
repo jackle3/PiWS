@@ -65,34 +65,34 @@ struct tcp_connection *tcp_init(nrf_t *nrf, uint8_t dst_rcp, bool is_server, uin
 }
 
 // Server-side handshake (receives SYN)
-int tcp_server_handshake(struct tcp_connection *tcp)
+int tcp_server_handshake(struct tcp_connection *server, struct tcp_connection *client)
 {
-    if (!tcp)
+    if (!server)
         return -1;
 
     uint8_t buffer[RCP_TOTAL_SIZE];
     int ret;
 
     // Initialize state if needed
-    if (tcp->state == TCP_CLOSED)
+    if (server->state == TCP_CLOSED)
     {
         trace("Initializing state for server...\n");
-        trace("[server] My NRF address: %x\n", tcp->nrf->rxaddr);
-        trace("[server] Remote NRF address: %x\n", tcp->remote_addr);
+        trace("[server] My NRF address: %x\n", server->nrf->rxaddr);
+        trace("[server] Remote NRF address: %x\n", server->remote_addr);
 
         // Server waits for SYN
-        tcp->state = TCP_LISTEN;
+        server->state = TCP_LISTEN;
         return 0;
     }
 
     // Handle server states
-    switch (tcp->state)
+    switch (server->state)
     {
     case TCP_LISTEN:
     {
         // Server: waiting for SYN
-        trace("[server] Waiting for SYN at NRF address %x\n", tcp->nrf->rxaddr);
-        ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100); // Shorter timeout
+        trace("[server] Waiting for SYN at NRF address %x\n", server->nrf->rxaddr);
+        ret = nrf_read_exact_timeout(server->nrf, buffer, RCP_TOTAL_SIZE, 100); // Shorter timeout
         if (ret == RCP_TOTAL_SIZE)
         {
             struct rcp_datagram rx = rcp_datagram_init();
@@ -105,13 +105,13 @@ int tcp_server_handshake(struct tcp_connection *tcp)
                       rx.header.src);
 
                 // Update receiver's expected sequence number
-                tcp->receiver->reasm->next_seqno = rx.header.seqno + 1;
+                server->receiver->reasm->next_seqno = rx.header.seqno + 1;
 
                 // Send SYN-ACK
                 struct rcp_datagram synack = rcp_datagram_init();
-                synack.header.src = tcp->sender->src_addr;
-                synack.header.dst = tcp->sender->dst_addr;
-                synack.header.seqno = tcp->sender->next_seqno; // Initial sequence number
+                synack.header.src = server->sender->src_addr;
+                synack.header.dst = server->sender->dst_addr;
+                synack.header.seqno = server->sender->next_seqno; // Initial sequence number
                 synack.header.ackno = rx.header.seqno + 1;     // Acknowledge the SYN
                 rcp_set_flag(&synack.header, RCP_FLAG_SYN);
                 rcp_set_flag(&synack.header, RCP_FLAG_ACK);
@@ -120,11 +120,11 @@ int tcp_server_handshake(struct tcp_connection *tcp)
                 if (rcp_datagram_serialize(&synack, buffer, RCP_TOTAL_SIZE) >= 0)
                 {
                     trace("[server] Sending SYN-ACK with seq=%d, ack=%d to %x...\n",
-                          synack.header.seqno, synack.header.ackno, tcp->remote_addr);
-                    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
-                    tcp->sender->next_seqno++; // Increment after sending SYN-ACK
-                    tcp->state = TCP_SYN_RECEIVED;
-                    tcp->last_time = timer_get_usec(); // Reset timer for retransmission
+                          synack.header.seqno, synack.header.ackno, server->remote_addr);
+                    nrf_send_noack(client->nrf, client->remote_addr, buffer, RCP_TOTAL_SIZE);
+                    server->sender->next_seqno++; // Increment after sending SYN-ACK
+                    server->state = TCP_SYN_RECEIVED;
+                    server->last_time = timer_get_usec(); // Reset timer for retransmission
                 }
             }
         }
@@ -134,13 +134,13 @@ int tcp_server_handshake(struct tcp_connection *tcp)
     case TCP_SYN_RECEIVED:
     {
         // Server: waiting for ACK, resend SYN-ACK periodically
-        if (timer_get_usec() - tcp->last_time > RETRANSMIT_TIMEOUT_US)
+        if (timer_get_usec() - server->last_time > RETRANSMIT_TIMEOUT_US)
         {
             struct rcp_datagram synack = rcp_datagram_init();
-            synack.header.src = tcp->sender->src_addr;
-            synack.header.dst = tcp->sender->dst_addr;
-            synack.header.seqno = tcp->sender->next_seqno - 1;      // Use same seqno as before
-            synack.header.ackno = tcp->receiver->reasm->next_seqno; // Use stored ackno
+            synack.header.src = server->sender->src_addr;
+            synack.header.dst = server->sender->dst_addr;
+            synack.header.seqno = server->sender->next_seqno - 1;      // Use same seqno as before
+            synack.header.ackno = server->receiver->reasm->next_seqno; // Use stored ackno
             rcp_set_flag(&synack.header, RCP_FLAG_SYN);
             rcp_set_flag(&synack.header, RCP_FLAG_ACK);
             rcp_compute_checksum(&synack.header);
@@ -148,13 +148,13 @@ int tcp_server_handshake(struct tcp_connection *tcp)
             if (rcp_datagram_serialize(&synack, buffer, RCP_TOTAL_SIZE) >= 0)
             {
                 trace("[server] Resending SYN-ACK with seq=%d, ack=%d to %x...\n",
-                      synack.header.seqno, synack.header.ackno, tcp->remote_addr);
-                nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                      synack.header.seqno, synack.header.ackno, server->remote_addr);
+                nrf_send_noack(client->nrf, client->remote_addr, buffer, RCP_TOTAL_SIZE);
             }
-            tcp->last_time = timer_get_usec();
+            server->last_time = timer_get_usec();
         }
 
-        ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100); // Short timeout
+        ret = nrf_read_exact_timeout(server->nrf, buffer, RCP_TOTAL_SIZE, 100); // Short timeout
         if (ret == RCP_TOTAL_SIZE)
         {
             struct rcp_datagram rx = rcp_datagram_init();
@@ -167,9 +167,9 @@ int tcp_server_handshake(struct tcp_connection *tcp)
                       rx.header.ackno, rx.header.src);
 
                 // Update receiver's expected sequence number
-                tcp->receiver->reasm->next_seqno = rx.header.seqno + 1;
+                server->receiver->reasm->next_seqno = rx.header.seqno + 1;
 
-                tcp->state = TCP_ESTABLISHED;
+                server->state = TCP_ESTABLISHED;
             }
         }
         break;
@@ -179,68 +179,68 @@ int tcp_server_handshake(struct tcp_connection *tcp)
         break;
     }
 
-    return tcp->state == TCP_ESTABLISHED ? 1 : 0;
+    return server->state == TCP_ESTABLISHED ? 1 : 0;
 }
 
 // Client-side handshake (sends SYN)
-int tcp_client_handshake(struct tcp_connection *tcp)
+int tcp_client_handshake(struct tcp_connection *client, struct tcp_connection *server)
 {
-    if (!tcp)
+    if (!client)
         return -1;
 
     uint8_t buffer[RCP_TOTAL_SIZE];
     int ret;
 
     // Initialize state if needed
-    if (tcp->state == TCP_CLOSED)
+    if (client->state == TCP_CLOSED)
     {
         trace("Initializing state for client...\n");
-        trace("[client] My NRF address: %x\n", tcp->nrf->rxaddr);
-        trace("[client] Remote NRF address: %x\n", tcp->remote_addr);
+        trace("[client] My NRF address: %x\n", client->nrf->rxaddr);
+        trace("[client] Remote NRF address: %x\n", client->remote_addr);
 
         // Client sends initial SYN immediately
         struct rcp_datagram syn = rcp_datagram_init();
-        syn.header.src = tcp->sender->src_addr;     // Already in RCP address space
-        syn.header.dst = tcp->sender->dst_addr;     // Already in RCP address space
-        syn.header.seqno = tcp->sender->next_seqno; // Initial sequence number
+        syn.header.src = client->sender->src_addr;     // Already in RCP address space
+        syn.header.dst = client->sender->dst_addr;     // Already in RCP address space
+        syn.header.seqno = client->sender->next_seqno; // Initial sequence number
         rcp_set_flag(&syn.header, RCP_FLAG_SYN);
         rcp_compute_checksum(&syn.header);
 
         if (rcp_datagram_serialize(&syn, buffer, RCP_TOTAL_SIZE) >= 0)
         {
             trace("[client] Sending initial SYN with seq=%d to NRF addr %x...\n", syn.header.seqno,
-                  tcp->remote_addr);
-            nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
-            tcp->state = TCP_SYN_SENT;
-            tcp->last_time = timer_get_usec(); // Set initial time for retransmission
+                  client->remote_addr);
+            nrf_send_noack(client->nrf, client->remote_addr, buffer, RCP_TOTAL_SIZE);
+            client->state = TCP_SYN_SENT;
+            client->last_time = timer_get_usec(); // Set initial time for retransmission
         }
         return 0;
     }
 
     // Handle client state
-    if (tcp->state == TCP_SYN_SENT)
+    if (client->state == TCP_SYN_SENT)
     {
         // Client: resend SYN periodically and check for SYN-ACK
-        if (timer_get_usec() - tcp->last_time > RETRANSMIT_TIMEOUT_US)
+        if (timer_get_usec() - client->last_time > RETRANSMIT_TIMEOUT_US)
         {
             struct rcp_datagram syn = rcp_datagram_init();
-            syn.header.src = tcp->sender->src_addr;
-            syn.header.dst = tcp->sender->dst_addr;
-            syn.header.seqno = tcp->sender->next_seqno; // Keep using initial sequence number
+            syn.header.src = client->sender->src_addr;
+            syn.header.dst = client->sender->dst_addr;
+            syn.header.seqno = client->sender->next_seqno; // Keep using initial sequence number
             rcp_set_flag(&syn.header, RCP_FLAG_SYN);
             rcp_compute_checksum(&syn.header);
 
             if (rcp_datagram_serialize(&syn, buffer, RCP_TOTAL_SIZE) >= 0)
             {
                 trace("[client] Resending SYN with seq=%d to %x...\n", syn.header.seqno,
-                      tcp->remote_addr);
-                nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
+                      client->remote_addr);
+                nrf_send_noack(client->nrf, client->remote_addr, buffer, RCP_TOTAL_SIZE);
             }
-            tcp->last_time = timer_get_usec();
+            client->last_time = timer_get_usec();
         }
 
         // Check for SYN-ACK response
-        ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100); // Short timeout
+        ret = nrf_read_exact_timeout(server->nrf, buffer, RCP_TOTAL_SIZE, 100); // Short timeout
         if (ret == RCP_TOTAL_SIZE)
         {
             struct rcp_datagram rx = rcp_datagram_init();
@@ -253,13 +253,13 @@ int tcp_client_handshake(struct tcp_connection *tcp)
                       rx.header.ackno, rx.header.src);
 
                 // Update receiver's expected sequence number
-                tcp->receiver->reasm->next_seqno = rx.header.seqno + 1;
+                client->receiver->reasm->next_seqno = rx.header.seqno + 1;
 
                 // Send ACK
                 struct rcp_datagram ack = rcp_datagram_init();
-                ack.header.src = tcp->sender->src_addr;
-                ack.header.dst = tcp->sender->dst_addr;
-                ack.header.seqno = tcp->sender->next_seqno++; // Use and increment
+                ack.header.src = client->sender->src_addr;
+                ack.header.dst = client->sender->dst_addr;
+                ack.header.seqno = client->sender->next_seqno++; // Use and increment
                 ack.header.ackno = rx.header.seqno + 1;       // Acknowledge their SYN
                 rcp_set_flag(&ack.header, RCP_FLAG_ACK);
                 rcp_compute_checksum(&ack.header);
@@ -267,33 +267,33 @@ int tcp_client_handshake(struct tcp_connection *tcp)
                 if (rcp_datagram_serialize(&ack, buffer, RCP_TOTAL_SIZE) >= 0)
                 {
                     trace("[client] Sending ACK with seq=%d, ack=%d to %x...\n", ack.header.seqno,
-                          ack.header.ackno, tcp->remote_addr);
-                    nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
-                    tcp->state = TCP_ESTABLISHED;
+                          ack.header.ackno, client->remote_addr);
+                    nrf_send_noack(client->nrf, client->remote_addr, buffer, RCP_TOTAL_SIZE);
+                    client->state = TCP_ESTABLISHED;
                 }
             }
         }
     }
 
-    return tcp->state == TCP_ESTABLISHED ? 1 : 0;
+    return client->state == TCP_ESTABLISHED ? 1 : 0;
 }
 
 // Main handshake function that delegates to the appropriate handler
-int tcp_do_handshake(struct tcp_connection *tcp)
-{
-    if (!tcp)
-        return -1;
+// int tcp_do_handshake(struct tcp_connection *tcp)
+// {
+//     if (!tcp)
+//         return -1;
 
-    // Delegate to the appropriate handshake function based on server/client role
-    if (tcp->is_server)
-    {
-        return tcp_server_handshake(tcp);
-    }
-    else
-    {
-        return tcp_client_handshake(tcp);
-    }
-}
+//     // Delegate to the appropriate handshake function based on server/client role
+//     if (tcp->is_server)
+//     {
+//         return tcp_server_handshake(tcp);
+//     }
+//     else
+//     {
+//         return tcp_client_handshake(tcp);
+//     }
+// }
 
 // Non-blocking helper to send a single segment
 int tcp_send_segment(struct tcp_connection *tcp, const struct unacked_segment *seg)

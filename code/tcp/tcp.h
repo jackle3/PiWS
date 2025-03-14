@@ -55,10 +55,10 @@ int tcp_recv(struct tcp_connection *tcp, void *data, size_t len);
 void tcp_close(struct tcp_connection *tcp);
 
 // Server-side handshake (receives SYN)
-int tcp_server_handshake(struct tcp_connection *tcp);
+int tcp_server_handshake(struct tcp_connection *server, struct tcp_connection *client);
 
 // Client-side handshake (sends SYN)
-int tcp_client_handshake(struct tcp_connection *tcp);
+int tcp_client_handshake(struct tcp_connection *client, struct tcp_connection *server);
 
 // Send segment
 int tcp_send_segment(struct tcp_connection *tcp, const struct unacked_segment *seg);
