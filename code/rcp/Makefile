@@ -3,7 +3,7 @@
 # PROGS += tests/test-rcp-base.c
 # PROGS += tests/test-rcp-over-nrf.c
 # PROGS += tests/looper.c
-PROGS += tests/send-message.c
+PROGS += tests/send_message_single_threaded.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 

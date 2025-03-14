@@ -15,6 +15,8 @@ struct rcp_datagram create_packet_hw();
 // Circular buffer used to continually parse user input
 // uint8_t *buf[25];
 
+void uart_putk(char *s);
+
 // Predefined header for faster handling
 static struct rcp_header head = {
     .payload_len = 0,
