@@ -12,11 +12,11 @@ static void test_tcp_reliable_delivery(nrf_t *server_nrf, nrf_t *client_nrf)
     // trace("Creating TCP connections...\n");
 
     // Server is host, remote is client
-    struct tcp_connection *server = tcp_init(server_nrf, client_addr_2, true);
+    struct tcp_connection *server = tcp_init(server_nrf, client_addr, true);
 
     // Client is host, remote is server
-    struct tcp_connection *client = tcp_init(client_nrf, server_addr_2, false);
-    size_t other_addr = nrf_to_rcp_addr(client_addr_2);
+    struct tcp_connection *client = tcp_init(client_nrf, server_addr, false);
+    size_t other_addr = nrf_to_rcp_addr(client_addr);
     char *other_addr_str = rcp_to_string(other_addr);
     size_t my_addr = nrf_to_rcp_addr(server_nrf->rxaddr);
     char *my_addr_str = rcp_to_string(my_addr);
@@ -168,12 +168,12 @@ void notmain(void)
     uart_init();
     config_init_hw(); // TODO: actually have destination address do something
 
-    trace("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr, RCP_TOTAL_SIZE);
-    nrf_t *s = server_mk_noack(server_addr, RCP_TOTAL_SIZE);
+    trace("configuring no-ack server=[%x] with %d nbyte msgs\n", server_addr_2, RCP_TOTAL_SIZE);
+    nrf_t *s = server_mk_noack(server_addr_2, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable server config:\n", s);
 
-    trace("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr, RCP_TOTAL_SIZE);
-    nrf_t *c = client_mk_noack(client_addr, RCP_TOTAL_SIZE);
+    trace("configuring no-ack client=[%x] with %d nbyte msg\n", client_addr_2, RCP_TOTAL_SIZE);
+    nrf_t *c = client_mk_noack(client_addr_2, RCP_TOTAL_SIZE);
     // nrf_dump("unreliable client config:\n", c);
 
     // Check compatibility

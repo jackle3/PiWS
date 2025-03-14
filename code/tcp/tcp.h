@@ -74,7 +74,7 @@ int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us);
 
 // Process connection closing steps (both active and passive)
 // Returns 1 if fully closed, 0 if in progress, -1 on error
-int tcp_process_closing(struct tcp_connection *tcp);
+int tcp_do_close(struct tcp_connection *tcp);   
 
 // Send a FIN packet to initiate closing
 int tcp_send_fin(struct tcp_connection *tcp);

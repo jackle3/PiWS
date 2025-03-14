@@ -476,141 +476,30 @@ int tcp_recv(struct tcp_connection *tcp, void *data, size_t len) {
     return bytes_received;
 }
 
-void tcp_close(struct tcp_connection *tcp) {
-    if (!tcp)
-        return;
-
-    // Handle based on current state
-    switch (tcp->state) {
-        case TCP_ESTABLISHED:
-            // Active close - send FIN and move to FIN_WAIT_1
-            trace("[%s] Initiating active close from ESTABLISHED state\n",
-                  tcp->is_server ? "server" : "client");
-            tcp_send_fin(tcp);
-            tcp->state = TCP_FIN_WAIT_1;
-            break;
-
-        case TCP_CLOSE_WAIT:
-            // Passive close - we already received FIN, now send our FIN
-            trace("[%s] Completing passive close from CLOSE_WAIT state\n",
-                  tcp->is_server ? "server" : "client");
-            tcp_send_fin(tcp);
-            tcp->state = TCP_LAST_ACK;
-            break;
-
-        default:
-            // For all other states, do nothing - closing is already in progress
-            // or the connection is already closed
-            break;
-    }
-
-    // Process closing until complete or a timeout is reached
-    uint32_t start_time = timer_get_usec();
-    uint32_t timeout = 5000000;  // 5 second timeout
-    int result = 0;
-
-    while (timer_get_usec() - start_time < timeout) {
-        // Process closing state machine
-        result = tcp_process_closing(tcp);
-
-        // If closed or error, break
-        if (result != 0) {
-            break;
-        }
-
-        // Small delay to prevent tight loop
-        delay_ms(1);  // 1ms delay
-    }
-
-    // If we didn't fully close after timeout, force close
-    if (tcp->state != TCP_CLOSED && timer_get_usec() - start_time >= timeout) {
-        trace("[%s] Forcing connection close after timeout\n",
-              tcp->is_server ? "server" : "client");
-        tcp->state = TCP_CLOSED;
-    }
-}
-
-// Helper function to send a FIN packet
-int tcp_send_fin(struct tcp_connection *tcp) {
-    if (!tcp)
-        return -1;
-
-    // Create an empty segment with FIN flag
-    struct unacked_segment fin_segment = {0};
-    fin_segment.seqno = tcp->sender->next_seqno++;
-    fin_segment.len = 0;  // FIN doesn't carry data
-    fin_segment.acked = false;
-    fin_segment.send_time = 0;   // Will be set by tcp_send_segment
-    fin_segment.is_fin = false;  // Will be set to true after adding to window
-
-    // Try to find an empty slot in the sender window for this FIN
-    int slot_idx = -1;
-    int max_attempts = 10;  // Prevent infinite loops
-    int attempts = 0;
-
-    while (slot_idx < 0 && attempts < max_attempts) {
-        // Find an empty slot in the sender window for this FIN
-        for (int i = 0; i < SENDER_WINDOW_SIZE; i++) {
-            if (tcp->sender->segments[i].acked) {
-                slot_idx = i;
-                break;
-            }
-        }
-
-        if (slot_idx < 0) {
-            // No room in the window - wait a bit and check for ACKs
-            delay_ms(100);  // Short delay
-
-            // Check for ACKs to free up window space
-            struct rcp_datagram ack = rcp_datagram_init();
-            if (tcp_recv_packet(tcp, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
-                sender_process_ack(tcp->sender, &ack.header);
-            }
-
-            attempts++;
-        }
-    }
-
-    if (slot_idx < 0) {
-        trace("[%s] Failed to find space in sender window for FIN after %d attempts\n",
-              tcp->is_server ? "server" : "client", max_attempts);
-        // In a real implementation we might want to return an error, but for now,
-        // we'll just take over the oldest segment slot to avoid deadlock
-        slot_idx = 0;
-    }
-
-    // Add the FIN to the sender window
-    tcp->sender->segments[slot_idx] = fin_segment;
-
-    // Set the FIN flag to indicate this is a special segment
-    tcp->sender->segments[slot_idx].is_fin = true;
-
-    // Send the FIN segment using regular segment transmission
-    trace("[%s] Sending FIN with seq=%d to %x (via segment)...\n",
-          tcp->is_server ? "server" : "client", fin_segment.seqno, tcp->remote_addr);
-    return tcp_send_segment(tcp, &tcp->sender->segments[slot_idx]);
-}
-
-// Process closing states of a TCP connection
-int tcp_process_closing(struct tcp_connection *tcp) {
+// Process active close (initiator of the close)
+int tcp_active_close(struct tcp_connection *tcp) {
     if (!tcp)
         return -1;
 
     uint8_t buffer[RCP_TOTAL_SIZE];
     int ret;
 
-    // Only process if we're in a closing state
-    if (tcp->state == TCP_ESTABLISHED || tcp->state == TCP_CLOSED)
-        return -1;
+    // Start the active close if in ESTABLISHED state
+    if (tcp->state == TCP_ESTABLISHED) {
+        trace("[%s] Initiating active close from ESTABLISHED state\n",
+              tcp->is_server ? "server" : "client");
+        tcp_send_fin(tcp);
+        tcp->state = TCP_FIN_WAIT_1;
+        tcp->last_time = timer_get_usec();
+        return 0;
+    }
 
     // Check for retransmissions using the standard mechanism
     tcp_check_retransmit(tcp, timer_get_usec());
 
-    // Handle each closing state
+    // Handle the active close states
     switch (tcp->state) {
         case TCP_FIN_WAIT_1: {
-            // Active close: Sent FIN, waiting for ACK and/or FIN
-
             // Check for response (ACK or FIN)
             ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100);
             if (ret == RCP_TOTAL_SIZE) {
@@ -672,8 +561,6 @@ int tcp_process_closing(struct tcp_connection *tcp) {
         }
 
         case TCP_FIN_WAIT_2: {
-            // Active close: Received ACK for FIN, waiting for FIN
-
             // Check for incoming FIN
             ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100);
             if (ret == RCP_TOTAL_SIZE) {
@@ -704,35 +591,7 @@ int tcp_process_closing(struct tcp_connection *tcp) {
             break;
         }
 
-        case TCP_CLOSE_WAIT: {
-            // Passive close: Already received FIN and sent ACK
-            // No special processing needed until application calls tcp_close()
-            break;
-        }
-
-        case TCP_LAST_ACK: {
-            // Passive close: Sent FIN, waiting for ACK
-
-            // Check for ACK
-            ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100);
-            if (ret == RCP_TOTAL_SIZE) {
-                struct rcp_datagram rx = rcp_datagram_init();
-                if (rcp_datagram_parse(&rx, buffer, RCP_TOTAL_SIZE) < 0)
-                    return 0;
-
-                if (rcp_has_flag(&rx.header, RCP_FLAG_ACK)) {
-                    trace("[%s] Received ACK in LAST_ACK, connection closed\n",
-                          tcp->is_server ? "server" : "client");
-                    tcp->state = TCP_CLOSED;
-                    return 1;  // Fully closed
-                }
-            }
-            break;
-        }
-
         case TCP_CLOSING: {
-            // Active close: Sent FIN, received FIN but not ACK, waiting for ACK
-
             // Check for ACK
             ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100);
             if (ret == RCP_TOTAL_SIZE) {
@@ -751,7 +610,7 @@ int tcp_process_closing(struct tcp_connection *tcp) {
         }
 
         case TCP_TIME_WAIT: {
-            // Either close: waiting for timeout before fully closing
+            // Waiting for timeout before fully closing
             if (timer_get_usec() - tcp->last_time > TCP_TIME_WAIT_US) {
                 trace("[%s] TIME_WAIT timeout expired, connection closed\n",
                       tcp->is_server ? "server" : "client");
@@ -761,9 +620,166 @@ int tcp_process_closing(struct tcp_connection *tcp) {
             break;
         }
 
+        case TCP_CLOSED:
+            return 1;  // Already closed
+
         default:
-            return -1;  // Invalid state
+            return -1;  // Invalid state for active close
     }
 
-    return 0;  // Closing in progress
+    return 0;  // Still in progress
+}
+
+// Process passive close (responder to the close)
+int tcp_passive_close(struct tcp_connection *tcp) {
+    if (!tcp)
+        return -1;
+
+    uint8_t buffer[RCP_TOTAL_SIZE];
+    int ret;
+
+    // Start the passive close if in CLOSE_WAIT state
+    if (tcp->state == TCP_CLOSE_WAIT) {
+        trace("[%s] Completing passive close from CLOSE_WAIT state\n",
+              tcp->is_server ? "server" : "client");
+        tcp_send_fin(tcp);
+        tcp->state = TCP_LAST_ACK;
+        tcp->last_time = timer_get_usec();
+        return 0;
+    }
+
+    // Check for retransmissions using the standard mechanism
+    tcp_check_retransmit(tcp, timer_get_usec());
+
+    // Handle passive close states
+    switch (tcp->state) {
+        case TCP_LAST_ACK: {
+            // Check for ACK
+            ret = nrf_read_exact_timeout(tcp->nrf, buffer, RCP_TOTAL_SIZE, 100);
+            if (ret == RCP_TOTAL_SIZE) {
+                struct rcp_datagram rx = rcp_datagram_init();
+                if (rcp_datagram_parse(&rx, buffer, RCP_TOTAL_SIZE) < 0)
+                    return 0;
+
+                if (rcp_has_flag(&rx.header, RCP_FLAG_ACK)) {
+                    trace("[%s] Received ACK in LAST_ACK, connection closed\n",
+                          tcp->is_server ? "server" : "client");
+                    tcp->state = TCP_CLOSED;
+                    return 1;  // Fully closed
+                }
+            }
+            break;
+        }
+
+        case TCP_CLOSED:
+            return 1;  // Already closed
+
+        default:
+            return -1;  // Invalid state for passive close
+    }
+
+    return 0;  // Still in progress
+}
+
+// Process closing of TCP connection (both active and passive close)
+int tcp_do_close(struct tcp_connection *tcp) {
+    if (!tcp)
+        return -1;
+
+    // Route to the appropriate closing function based on state
+    if (tcp->state == TCP_ESTABLISHED) {
+        // Start active close
+        return tcp_active_close(tcp);
+    } else if (tcp->state == TCP_CLOSE_WAIT) {
+        // Start passive close
+        return tcp_passive_close(tcp);
+    } else if (tcp->state == TCP_FIN_WAIT_1 || tcp->state == TCP_FIN_WAIT_2 ||
+               tcp->state == TCP_CLOSING || tcp->state == TCP_TIME_WAIT) {
+        // Continue active close
+        return tcp_active_close(tcp);
+    } else if (tcp->state == TCP_LAST_ACK) {
+        // Continue passive close
+        return tcp_passive_close(tcp);
+    } else if (tcp->state == TCP_CLOSED) {
+        return 1;  // Already closed
+    }
+
+    return -1;  // Invalid state
+}
+
+// Non-blocking close function (initiates close if needed)
+void tcp_close(struct tcp_connection *tcp) {
+    if (!tcp)
+        return;
+
+    // Initiate close only if we're in ESTABLISHED or CLOSE_WAIT state
+    if (tcp->state == TCP_ESTABLISHED) {
+        // Start active close
+        tcp_active_close(tcp);
+    } else if (tcp->state == TCP_CLOSE_WAIT) {
+        // Start passive close
+        tcp_passive_close(tcp);
+    }
+    // Otherwise do nothing - closing is already in progress or complete
+}
+
+// Helper function to send a FIN packet
+int tcp_send_fin(struct tcp_connection *tcp) {
+    if (!tcp)
+        return -1;
+
+    // Create an empty segment with FIN flag
+    struct unacked_segment fin_segment = {0};
+    fin_segment.seqno = tcp->sender->next_seqno++;
+    fin_segment.len = 0;  // FIN doesn't carry data
+    fin_segment.acked = false;
+    fin_segment.send_time = 0;   // Will be set by tcp_send_segment
+    fin_segment.is_fin = false;  // Will be set to true after adding to window
+
+    // Try to find an empty slot in the sender window for this FIN
+    int slot_idx = -1;
+    int max_attempts = 10;  // Prevent infinite loops
+    int attempts = 0;
+
+    while (slot_idx < 0 && attempts < max_attempts) {
+        // Find an empty slot in the sender window for this FIN
+        for (int i = 0; i < SENDER_WINDOW_SIZE; i++) {
+            if (tcp->sender->segments[i].acked) {
+                slot_idx = i;
+                break;
+            }
+        }
+
+        if (slot_idx < 0) {
+            // No room in the window - wait a bit and check for ACKs
+            delay_ms(100);  // Short delay
+
+            // Check for ACKs to free up window space
+            struct rcp_datagram ack = rcp_datagram_init();
+            if (tcp_recv_packet(tcp, &ack) == 0 && rcp_has_flag(&ack.header, RCP_FLAG_ACK)) {
+                sender_process_ack(tcp->sender, &ack.header);
+            }
+
+            attempts++;
+        }
+    }
+
+    if (slot_idx < 0) {
+        trace("[%s] Failed to find space in sender window for FIN after %d attempts\n",
+              tcp->is_server ? "server" : "client", max_attempts);
+        // In a real implementation we might want to return an error, but for now,
+        // we'll just take over the oldest segment slot to avoid deadlock
+        slot_idx = 0;
+    }
+
+    // Add the FIN to the sender window
+    tcp->sender->segments[slot_idx] = fin_segment;
+
+    // Set the FIN flag to indicate this is a special segment
+    tcp->sender->segments[slot_idx].is_fin = true;
+
+    // Send the FIN segment using regular segment transmission
+    trace("[%s] Sending FIN with seq=%d to %x (via segment)...\n",
+          tcp->is_server ? "server" : "client", fin_segment.seqno, tcp->remote_addr);
+    return tcp_send_segment(tcp, &tcp->sender->segments[slot_idx]);
 }
