@@ -3,40 +3,29 @@
 #include <string.h>
 
 // Static mapping between NRF addresses and RCP addresses
-#define RCP_SERVER_ADDR 0x1
-#define RCP_CLIENT_ADDR 0x2
-#define RCP_SERVER_ADDR_2 0x3
-#define RCP_CLIENT_ADDR_2 0x4
+#define RCP_ADDR 0x1
+#define RCP_ADDR_2 0x2
 
 // Timeout values in microseconds
 #define RETRANSMIT_TIMEOUT_US (3 * 1000000) // 3s in microseconds
 
 // Helper function to get RCP address from NRF address
-static uint8_t nrf_to_rcp_addr(uint32_t nrf_addr)
+uint8_t nrf_to_rcp_addr(uint32_t nrf_addr)
 {
-    if (nrf_addr == server_addr)
-        return RCP_SERVER_ADDR;
-    if (nrf_addr == client_addr)
-        return RCP_CLIENT_ADDR;
-
-    if (nrf_addr == server_addr_2)
-        return RCP_SERVER_ADDR_2;
-    if (nrf_addr == client_addr_2)
-        return RCP_CLIENT_ADDR_2;
+    if (nrf_addr == server_addr || nrf_addr == client_addr)
+        return RCP_ADDR;
+    if (nrf_addr == server_addr_2 || nrf_addr == client_addr_2)
+        return RCP_ADDR_2;
     return 0; // Invalid address
 }
 
 // Helper function to get NRF address from RCP address
-static uint32_t rcp_to_nrf_addr(uint8_t rcp_addr)
+uint32_t rcp_to_nrf_addr(uint8_t rcp_addr)
 {
-    if (rcp_addr == RCP_SERVER_ADDR)
+    if (rcp_addr == RCP_ADDR)
         return server_addr;
-    if (rcp_addr == RCP_CLIENT_ADDR)
-        return client_addr;
-    if (rcp_addr == RCP_SERVER_ADDR_2)
+    if (rcp_addr == RCP_ADDR_2)
         return server_addr_2;
-    if (rcp_addr == RCP_CLIENT_ADDR_2)
-        return client_addr_2;
     return 0; // Invalid address
 }
 
@@ -303,8 +292,8 @@ int tcp_send_segment(struct tcp_connection *tcp, const struct unacked_segment *s
     if (rcp_datagram_serialize(&dgram, buffer, RCP_TOTAL_SIZE) < 0)
         return -1;
 
-    trace("[%s] Sending segment seq=%d to NRF addr %x...\n", tcp->is_server ? "server" : "client",
-          seg->seqno, tcp->remote_addr);
+    // trace("[%s] Sending segment seq=%d to NRF addr %x...\n", tcp->is_server ? "server" : "client",
+    //       seg->seqno, tcp->remote_addr);
     nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
     sender_segment_sent(tcp->sender, seg, timer_get_usec());
 
@@ -329,13 +318,13 @@ int tcp_recv_packet(struct tcp_connection *tcp, struct rcp_datagram *dgram)
 
     if (rcp_has_flag(&dgram->header, RCP_FLAG_ACK))
     {
-        trace("[%s] Received ACK for seq=%d from RCP addr %x\n",
-              tcp->is_server ? "server" : "client", dgram->header.ackno, dgram->header.src);
+        // trace("[%s] Received ACK for seq=%d from RCP addr %x\n",
+        //       tcp->is_server ? "server" : "client", dgram->header.ackno, dgram->header.src);
     }
     else
     {
-        trace("[%s] Received segment seq=%d from RCP addr %x\n",
-              tcp->is_server ? "server" : "client", dgram->header.seqno, dgram->header.src);
+        // trace("[%s] Received segment seq=%d from RCP addr %x\n",
+        //       tcp->is_server ? "server" : "client", dgram->header.seqno, dgram->header.src);
     }
 
     return 0;
@@ -356,8 +345,8 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack)
     if (rcp_datagram_serialize(&ack_dgram, buffer, RCP_TOTAL_SIZE) < 0)
         return -1;
 
-    trace("[%s] Sending ACK for seq=%d to NRF addr %x\n", tcp->is_server ? "server" : "client",
-          ack->ackno, tcp->remote_addr);
+    // trace("[%s] Sending ACK for seq=%d to NRF addr %x\n", tcp->is_server ? "server" : "client",
+    //       ack->ackno, tcp->remote_addr);
     nrf_send_noack(tcp->nrf, tcp->remote_addr, buffer, RCP_TOTAL_SIZE);
 
     return 0;
@@ -377,9 +366,9 @@ int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us)
         if (!seg->acked && seg->send_time > 0 &&
             (current_time_us - seg->send_time) >= RETRANSMIT_TIMEOUT_US)
         {
-            trace("\n\t\t[%s] RETRANSMITTING expired segment seq=%d (last sent %uus ago)\n",
-                  tcp->is_server ? "server" : "client", seg->seqno,
-                  current_time_us - seg->send_time);
+            // trace("\n\t\t[%s] RETRANSMITTING expired segment seq=%d (last sent %uus ago)\n",
+            //       tcp->is_server ? "server" : "client", seg->seqno,
+            //       current_time_us - seg->send_time);
 
             // Retransmit the segment
             if (tcp_send_segment(tcp, seg) == 0)
@@ -421,8 +410,8 @@ int tcp_send(struct tcp_connection *tcp, const void *data, size_t len)
                 continue;
             }
 
-            trace("[%s] Sending new segment seq=%d (bytes_acked=%d/%d)\n",
-                  tcp->is_server ? "server" : "client", seg->seqno, bytes_acked, written);
+            // trace("[%s] Sending new segment seq=%d (bytes_acked=%d/%d)\n",
+            //       tcp->is_server ? "server" : "client", seg->seqno, bytes_acked, written);
         }
 
         // Try to receive ACK with short timeout
@@ -434,8 +423,8 @@ int tcp_send(struct tcp_connection *tcp, const void *data, size_t len)
             if (newly_acked > 0)
             {
                 bytes_acked += newly_acked * RCP_MAX_PAYLOAD;
-                trace("[%s] Received ACK for %d segments (bytes_acked=%d/%d)\n",
-                      tcp->is_server ? "server" : "client", newly_acked, bytes_acked, written);
+                // trace("[%s] Received ACK for %d segments (bytes_acked=%d/%d)\n",
+                //       tcp->is_server ? "server" : "client", newly_acked, bytes_acked, written);
             }
         }
     }
@@ -486,8 +475,8 @@ int tcp_recv(struct tcp_connection *tcp, void *data, size_t len)
         // Check for timeout
         if (timer_get_usec() - start_time > 5000000)
         { // 5 second timeout
-            trace("[%s] Receive timeout after %d bytes\n", tcp->is_server ? "server" : "client",
-                  bytes_received);
+            // trace("[%s] Receive timeout after %d bytes\n", tcp->is_server ? "server" : "client",
+            //       bytes_received);
             break;
         }
     }

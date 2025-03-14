@@ -5,7 +5,8 @@
 #include "sender.h"
 
 // TCP connection state
-enum tcp_state {
+enum tcp_state
+{
     TCP_CLOSED,
     TCP_LISTEN,
     TCP_SYN_SENT,
@@ -18,14 +19,15 @@ enum tcp_state {
 };
 
 // TCP connection structure
-struct tcp_connection {
-    struct sender *sender;      // Sender for outgoing data
-    struct receiver *receiver;  // Receiver for incoming data
-    nrf_t *nrf;                 // NRF radio interface
-    uint32_t remote_addr;       // Remote address
-    enum tcp_state state;       // Current connection state
-    bool is_server;             // Whether this is server or client (client sends SYN first)
-    uint32_t last_time;         // Last activity timestamp
+struct tcp_connection
+{
+    struct sender *sender;     // Sender for outgoing data
+    struct receiver *receiver; // Receiver for incoming data
+    nrf_t *nrf;                // NRF radio interface
+    uint32_t remote_addr;      // Remote address
+    enum tcp_state state;      // Current connection state
+    bool is_server;            // Whether this is server or client (client sends SYN first)
+    uint32_t last_time;        // Last activity timestamp
 };
 
 // Initialize TCP connection
@@ -56,3 +58,6 @@ int tcp_send_ack(struct tcp_connection *tcp, const struct rcp_header *ack);
 // - current_time_us should be from timer_get_usec()
 // Returns number of segments retransmitted, or -1 on error
 int tcp_check_retransmit(struct tcp_connection *tcp, uint32_t current_time_us);
+
+uint8_t nrf_to_rcp_addr(uint32_t nrf_addr);
+uint32_t rcp_to_nrf_addr(uint8_t rcp_addr);

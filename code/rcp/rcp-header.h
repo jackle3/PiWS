@@ -4,14 +4,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RCP_HEADER_LENGTH 10     /* RCP header length in bytes */
-#define RCP_MAX_PAYLOAD 22       /* Maximum payload size to fit in 32-byte NRF packet */
-#define RCP_TOTAL_SIZE 32        /* Total size of RCP packet (header + max payload) */
+#define RCP_HEADER_LENGTH 10 /* RCP header length in bytes */
+#define RCP_MAX_PAYLOAD 22   /* Maximum payload size to fit in 32-byte NRF packet */
+#define RCP_TOTAL_SIZE 32    /* Total size of RCP packet (header + max payload) */
 
 /* Flag bits for the flags field */
-#define RCP_FLAG_FIN (1 << 0)    /* FIN flag */
-#define RCP_FLAG_SYN (1 << 1)    /* SYN flag */
-#define RCP_FLAG_ACK (1 << 2)    /* ACK flag */
+#define RCP_FLAG_FIN (1 << 0) /* FIN flag */
+#define RCP_FLAG_SYN (1 << 1) /* SYN flag */
+#define RCP_FLAG_ACK (1 << 2) /* ACK flag */
 
 /*
  * RCP Header Format (10 bytes total):
@@ -24,15 +24,16 @@
  * Bytes 7-8:  Acknowledgment Number (2 bytes)
  * Byte 9:     Window Size (1 byte)
  */
-struct rcp_header {
-    uint8_t payload_len;     /* Length of payload */
-    uint8_t cksum;          /* Header checksum */
-    uint8_t dst;            /* Destination address */
-    uint8_t src;            /* Source address */
-    uint16_t seqno;         /* Sequence number */
-    uint8_t flags;          /* Control flags (FIN, SYN, ACK) */
-    uint16_t ackno;         /* Acknowledgment number */
-    uint8_t window;         /* Window size */
+struct rcp_header
+{
+    uint8_t payload_len; /* Length of payload */
+    uint8_t cksum;       /* Header checksum */
+    uint8_t dst;         /* Destination address */
+    uint8_t src;         /* Source address */
+    uint16_t seqno;      /* Sequence number */
+    uint8_t flags;       /* Control flags (FIN, SYN, ACK) */
+    uint16_t ackno;      /* Acknowledgment number */
+    uint8_t window;      /* Window size */
 };
 
 /* Initialize RCP header with default values */
@@ -48,14 +49,19 @@ void rcp_parse(struct rcp_header *hdr, const void *data);
 void rcp_serialize(const struct rcp_header *hdr, void *data);
 
 /* Helper functions for flag manipulation */
-static inline void rcp_set_flag(struct rcp_header *hdr, uint8_t flag) {
+static inline void rcp_set_flag(struct rcp_header *hdr, uint8_t flag)
+{
     hdr->flags |= flag;
 }
 
-static inline void rcp_clear_flag(struct rcp_header *hdr, uint8_t flag) {
+static inline void rcp_clear_flag(struct rcp_header *hdr, uint8_t flag)
+{
     hdr->flags &= ~flag;
 }
 
-static inline int rcp_has_flag(const struct rcp_header *hdr, uint8_t flag) {
+static inline int rcp_has_flag(const struct rcp_header *hdr, uint8_t flag)
+{
     return (hdr->flags & flag) != 0;
-} 
+}
+
+char *rcp_to_string(uint8_t rcp_addr);

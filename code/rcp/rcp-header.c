@@ -1,7 +1,8 @@
 #include "rcp-header.h"
 #include <string.h>
 
-struct rcp_header rcp_header_init(void) {
+struct rcp_header rcp_header_init(void)
+{
     struct rcp_header hdr = {
         .payload_len = 0,
         .cksum = 0,
@@ -10,33 +11,36 @@ struct rcp_header rcp_header_init(void) {
         .seqno = 0,
         .flags = 0,
         .ackno = 0,
-        .window = 0
-    };
+        .window = 0};
     return hdr;
 }
 
 /* Simple 8-bit checksum calculation */
-static uint8_t calculate_checksum(const uint8_t *data, size_t len) {
+static uint8_t calculate_checksum(const uint8_t *data, size_t len)
+{
     uint8_t sum = 0;
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++)
+    {
         sum += data[i];
     }
-    return ~sum + 1;  // Two's complement
+    return ~sum + 1; // Two's complement
 }
 
-void rcp_compute_checksum(struct rcp_header *hdr) {
+void rcp_compute_checksum(struct rcp_header *hdr)
+{
     // Save and zero checksum field
     uint8_t saved_cksum = hdr->cksum;
     hdr->cksum = 0;
-    
+
     // Calculate checksum over header
-    uint8_t checksum = calculate_checksum((uint8_t*)hdr, RCP_HEADER_LENGTH);
+    uint8_t checksum = calculate_checksum((uint8_t *)hdr, RCP_HEADER_LENGTH);
     hdr->cksum = checksum;
 }
 
-void rcp_parse(struct rcp_header *hdr, const void *data) {
+void rcp_parse(struct rcp_header *hdr, const void *data)
+{
     const uint8_t *bytes = data;
-    
+
     hdr->payload_len = bytes[0];
     hdr->cksum = bytes[1];
     hdr->dst = bytes[2];
@@ -47,9 +51,10 @@ void rcp_parse(struct rcp_header *hdr, const void *data) {
     hdr->window = bytes[9];
 }
 
-void rcp_serialize(const struct rcp_header *hdr, void *data) {
+void rcp_serialize(const struct rcp_header *hdr, void *data)
+{
     uint8_t *bytes = data;
-    
+
     bytes[0] = hdr->payload_len;
     bytes[1] = hdr->cksum;
     bytes[2] = hdr->dst;
@@ -60,4 +65,22 @@ void rcp_serialize(const struct rcp_header *hdr, void *data) {
     bytes[7] = (hdr->ackno >> 8) & 0xFF;
     bytes[8] = hdr->ackno & 0xFF;
     bytes[9] = hdr->window;
-} 
+}
+
+char *rcp_to_string(uint8_t rcp_addr)
+{
+    static char str[4]; // Enough to hold 3 digits and null terminator
+    char *ptr = str + sizeof(str) - 1;
+
+    *ptr = '\0';
+
+    // Convert integer to characters
+    do
+    {
+        ptr--;
+        *ptr = (rcp_addr % 10) + '0';
+        rcp_addr /= 10;
+    } while (rcp_addr > 0);
+
+    return ptr;
+}
