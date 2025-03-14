@@ -64,11 +64,11 @@ static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
                     delay_us(100); // Wait if queue is full
                 }
 
-                uart_putk("Message queued for transmission\n");
+                // uart_putk("Message queued for transmission\n");
                 delay_ms(1000); // Delay before next prompt
                 segment = rcp_datagram_init();
                 i = 0;
-                uart_putk("Enter message, max 220 chars: \n");
+                // uart_putk("Enter message, max 220 chars: \n");
             }
         }
 
@@ -80,7 +80,7 @@ static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
                 // print payload from rcp datagram
                 struct rcp_datagram temp = rcp_datagram_init();
                 rcp_datagram_parse(&temp, dgram_serialized, PAYLOAD_SIZE);
-                output("SENT: %s\n", temp.payload);
+                // output("SENT: %s\n", temp.payload);
             }
         }
 
@@ -89,13 +89,13 @@ static void nrf_loop(nrf_t *tx_nrf, nrf_t *rx_nrf)
         {
             struct rcp_datagram temp = rcp_datagram_init();
             rcp_datagram_parse(&temp, dgram_serialized, PAYLOAD_SIZE);
-            output("RECEIVED: %s\n", temp.payload);
+            output("RECEIVED: %s\n", temp.header.src, temp.payload);
             // Push received data back to queue to keep it looping
             while (!cq_push_n(&rx_queue, dgram_serialized, PAYLOAD_SIZE))
             {
                 delay_us(100); // Wait if queue is full
             }
-            trace("pushed to rx queue\n");
+            // trace("pushed to rx queue\n");
         }
 
         // Small delay to prevent tight spinning
