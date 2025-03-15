@@ -21,14 +21,17 @@
 #include "rpi.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define BS_CAPACITY 1024
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#define MAX_WINDOW_SIZE UINT16_MAX
+#define BS_CAPACITY MAX_WINDOW_SIZE
 
 typedef struct bytestream {
-    uint8_t buffer[BS_CAPACITY];  // Circular buffer
-    size_t read_pos;              // Position for next read
-    size_t write_pos;             // Position for next write
-    size_t bytes_available;       // Number of bytes available to read
-    bool eof;                     // Whether the stream is at EOF
+    uint8_t buffer[MAX_WINDOW_SIZE];  // Circular buffer
+    size_t read_pos;                  // Position for next read
+    size_t write_pos;                 // Position for next write
+    size_t bytes_available;           // Number of bytes available to read
+    bool eof;                         // Whether the stream is at EOF
 
     size_t bytes_written;  // Number of bytes written to the stream
 } bytestream_t;
@@ -136,10 +139,16 @@ size_t bs_bytes_popped(const bytestream_t *bs) {
     return bs->bytes_written - bs->bytes_available;
 }
 
-// Check if the stream is finished
-bool bs_finished(const bytestream_t *bs) {
+// Check if the reading stream is finished (i.e. sender has read all data)
+bool bs_reader_finished(const bytestream_t *bs) {
     assert(bs);
     return bs->eof && bs->bytes_available == 0;
+}
+
+// Check if the writing stream is finished (i.e. receiver has written all data)
+bool bs_writer_finished(const bytestream_t *bs) {
+    assert(bs);
+    return bs->eof;
 }
 
 // Mark the stream as finished

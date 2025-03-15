@@ -3,9 +3,9 @@
 #include "bytestream.h"
 #include "nrf.h"
 #include "queue-ext-T.h"
-#include "segments.h"
+#include "types.h"
 
-#define INITIAL_WINDOW_SIZE 32
+#define INITIAL_WINDOW_SIZE 1024
 
 #define S_TO_US(s) ((s) * 1000000)
 #define RTO_INITIAL_US S_TO_US(1)
@@ -23,6 +23,8 @@ typedef struct rtq {
 
 gen_queue_T(rtq, rtq_t, head, tail, unacked_segment_t, next);
 
+typedef void (*sender_transmit_fn_t)(tcp_peer_t *peer, sender_segment_t *segment);
+
 typedef struct sender {
     nrf_t *nrf;           // Sender's NRF interface (to send segments)
     bytestream_t reader;  // App writes data to it, sender reads from it
@@ -36,13 +38,14 @@ typedef struct sender {
     uint32_t rto_time_us;     // Time when earliest outstanding segment will be retransmitted
     uint32_t n_retransmits;   // # of times the earliest outstanding segment has been retransmitted
 
-    void (*transmit)(sender_segment_t *segment);  // Callback to send segments to the remote peer
+    sender_transmit_fn_t transmit;  // Callback to send segments to the remote peer
+    tcp_peer_t *peer;               // Pointer to the TCP peer containing this sender (for callbacks)
 } sender_t;
 
 /**
  * Initialize the sender with default state
  */
-sender_t sender_init(nrf_t *nrf, void (*transmit)(sender_segment_t *segment)) {
+sender_t sender_init(nrf_t *nrf, sender_transmit_fn_t transmit, tcp_peer_t *peer) {
     sender_t sender = {
         .nrf = nrf,
         .reader = bs_init(),
@@ -53,6 +56,7 @@ sender_t sender_init(nrf_t *nrf, void (*transmit)(sender_segment_t *segment)) {
         .rto_time_us = 0,
         .n_retransmits = 0,
         .transmit = transmit,
+        .peer = peer,
     };
     return sender;
 }
@@ -75,7 +79,7 @@ sender_segment_t make_segment(sender_t *sender, size_t len) {
         seg.len = bs_read(&sender->reader, seg.payload, bytes_to_send);
     }
 
-    seg.is_fin = bs_finished(&sender->reader);
+    seg.is_fin = bs_reader_finished(&sender->reader);
 
     return seg;
 }
@@ -88,7 +92,7 @@ sender_segment_t make_segment(sender_t *sender, size_t len) {
 void sender_send_segment(sender_t *sender, sender_segment_t seg) {
     assert(sender);
 
-    sender->transmit(&seg);
+    sender->transmit(sender->peer, &seg);
 
     // Add the message to the queue of outstanding segments
     if (seg.len > 0 || seg.is_syn || seg.is_fin) {
@@ -122,7 +126,7 @@ void sender_push(sender_t *sender) {
     assert(sender);
 
     // Invariant: once FIN has been sent, no more data can be pushed
-    if (bs_finished(&sender->reader) &&
+    if (bs_reader_finished(&sender->reader) &&
         (sender->next_seqno > bs_bytes_popped(&sender->reader) + 1)) {
         // The seqno of FIN is `1 + bytes_popped`, so if the next seqno is greater, we've sent FIN
         return;
@@ -138,14 +142,14 @@ void sender_push(sender_t *sender) {
     }
 
     // If the receiver does not have enough space to receive the next seqno, do nothing
-    uint16_t receiver_max_seqno = sender->acked_seqno + sender->window_size;
+    uint32_t receiver_max_seqno = sender->acked_seqno + sender->window_size;
     if (receiver_max_seqno < sender->next_seqno) {
         return;
     }
 
     // Otherwise, send the segment if the bytestream has data to send
     if (bs_bytes_available(&sender->reader)) {
-        uint16_t remaining_space = receiver_max_seqno - sender->next_seqno;
+        uint32_t remaining_space = receiver_max_seqno - sender->next_seqno;
         sender_send_segment(sender, make_segment(sender, remaining_space));
     }
 }
@@ -195,11 +199,11 @@ void sender_process_reply(sender_t *sender, receiver_segment_t *reply) {
 void sender_check_retransmits(sender_t *sender) {
     assert(sender);
 
-    uint32_t now_us = timer_get_usec();
-    if (now_us >= sender->rto_time_us && !rtq_empty(&sender->pending_segs)) {
+    int32_t now_us = timer_get_usec();
+    if (now_us >= (int32_t)sender->rto_time_us && !rtq_empty(&sender->pending_segs)) {
         // Retransmit the earliest outstanding segment
         unacked_segment_t *seg = rtq_start(&sender->pending_segs);
-        sender->transmit(&seg->seg);  // Pass the sender_segment_t directly
+        sender->transmit(sender->peer, &seg->seg);  // Pass the sender_segment_t directly
 
         // If window size is nonzero, double RTO and update counter. Otherwise, reset RTO.
         if (sender->window_size) {

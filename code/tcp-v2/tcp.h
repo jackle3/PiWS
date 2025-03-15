@@ -1,3 +1,5 @@
+#pragma once
+
 #include "receiver.h"
 #include "sender.h"
 
@@ -38,7 +40,7 @@ void transmit_reply(tcp_peer_t *peer, receiver_segment_t *segment) {
  */
 tcp_peer_t tcp_peer_init(nrf_t *nrf, uint32_t local_addr, uint32_t remote_addr) {
     tcp_peer_t peer;
-    peer.sender = sender_init(nrf, transmit_segment);
-    peer.receiver = receiver_init(nrf, transmit_reply);
+    peer.sender = sender_init(nrf, transmit_segment, &peer);
+    peer.receiver = receiver_init(nrf, transmit_reply, &peer);
     return peer;
 }

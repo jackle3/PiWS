@@ -1,10 +1,11 @@
-# Include both numbered tests and our specific test file
-PROGS += tests/test-tcp.c
+PROGS += tests/test-bytestream.c
+PROGS += tests/test-sender.c
+PROGS += tests/test-receiver.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
 # Common source files
-COMMON_SRC := bytestream.h tcp.c receiver.h sender.h
+COMMON_SRC := bytestream.h tcp.h receiver.h sender.h
 
 COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp-datagram.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-driver.c
