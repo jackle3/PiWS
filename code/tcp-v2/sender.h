@@ -65,15 +65,16 @@ sender_t sender_init(nrf_t *nrf, void (*transmit)(sender_segment_t *segment)) {
  */
 sender_segment_t make_segment(sender_t *sender, size_t len) {
     sender_segment_t seg;
+    seg.len = 0;
     seg.seqno = sender->next_seqno;
     seg.is_syn = (seg.seqno == 0);
-    seg.is_fin = bs_finished(&sender->reader);
 
     size_t bytes_to_send = MIN(RCP_MAX_PAYLOAD, len);
     if (bytes_to_send > 0) {
-        bs_read(&sender->reader, seg.payload, bytes_to_send);
+        seg.len = bs_read(&sender->reader, seg.payload, bytes_to_send);
     }
-    seg.len = bytes_to_send;
+
+    seg.is_fin = bs_finished(&sender->reader);
 
     return seg;
 }
@@ -115,9 +116,8 @@ void sender_send_segment(sender_t *sender, sender_segment_t seg) {
  * sent to the remote peer.
  *
  * @param sender The sender to push data to
- * @param remote_addr The remote RCP address of the receiver
  */
-void sender_push(sender_t *sender, uint32_t remote_addr) {
+void sender_push(sender_t *sender) {
     assert(sender);
 
     // Invariant: once FIN has been sent, no more data can be pushed
@@ -142,9 +142,11 @@ void sender_push(sender_t *sender, uint32_t remote_addr) {
         return;
     }
 
-    // Otherwise, send the segment
-    uint16_t remaining_space = receiver_max_seqno - sender->next_seqno;
-    sender_send_segment(sender, make_segment(sender, remaining_space));
+    // Otherwise, send the segment if the bytestream has data to send
+    if (bs_bytes_available(&sender->reader)) {
+        uint16_t remaining_space = receiver_max_seqno - sender->next_seqno;
+        sender_send_segment(sender, make_segment(sender, remaining_space));
+    }
 }
 
 /**
