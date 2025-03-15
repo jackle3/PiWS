@@ -2,7 +2,7 @@
 
 #include "bytestream.h"
 #include "nrf.h"
-#include "rcp-datagram.h"
+#include "segments.h"
 
 #define REASM_BUFFER_SIZE 65536  // reassembler can hold 64KB of out-of-order segments
 
@@ -18,12 +18,6 @@ typedef struct receiver {
 
     void (*transmit)(receiver_segment_t *segment);  // Callback to send ACKs to the remote peer
 } receiver_t;
-
-typedef struct receiver_segment {
-    uint16_t ackno;        // Sequence number of the ACK
-    bool is_ack;           // Whether the segment is an ACK
-    uint16_t window_size;  // Advertised window size
-} receiver_segment_t;
 
 receiver_t receiver_init(nrf_t *nrf, void (*transmit)(receiver_segment_t *segment)) {
     receiver_t receiver;

@@ -41,6 +41,7 @@ bytestream_t bs_init() {
     bs.write_pos = 0;
     bs.bytes_available = 0;
     bs.bytes_written = 0;
+    bs.eof = false;
     return bs;
 }
 

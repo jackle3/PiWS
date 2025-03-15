@@ -2,18 +2,34 @@
 #include <string.h>
 
 #include "bytestream.h"
+#include "sender.h"
 // #include "reassembler.h"
 // #include "receiver.h"
-// #include "sender.h"
+
+// Mock NRF for testing
+typedef struct mock_nrf {
+    // Any state needed for the mock
+    int dummy;
+} mock_nrf_t;
+
+mock_nrf_t mock_nrf_init() {
+    mock_nrf_t nrf = {0};
+    return nrf;
+}
+
+// Mock transmit callback for sender
+static void mock_transmit(sender_segment_t *segment) {
+    printk("Mock transmit: seqno=%u, len=%u, is_syn=%d, is_fin=%d\n", 
+           segment->seqno, segment->len, segment->is_syn, segment->is_fin);
+}
 
 // Test basic bytestream operations
 static void test_bytestream(void) {
     printk("--------------------------------\n");
     printk("Starting bytestream test...\n");
-    struct bytestream bs;
-    bs_init(&bs);
-    assert(&bs != NULL);
-    printk("Bytestream initialized with capacity 100\n");
+    
+    bytestream_t bs = bs_init();
+    printk("Bytestream initialized with capacity %d\n", BS_CAPACITY);
 
     const char *test_data = "Hello, TCP!";
     size_t len = strlen(test_data);
@@ -22,66 +38,120 @@ static void test_bytestream(void) {
     size_t written = bs_write(&bs, (uint8_t *)test_data, len);
     assert(written == len);
     assert(bs_bytes_available(&bs) == len);
+    assert(bs_bytes_written(&bs) == len);
     printk("Successfully wrote %u bytes: '%s'\n", written, test_data);
 
+    // Test peeking
+    uint8_t peek_buffer[20];
+    size_t peeked = bs_peek(&bs, peek_buffer, sizeof(peek_buffer));
+    assert(peeked == len);
+    assert(memcmp(peek_buffer, test_data, len) == 0);
+    assert(bs_bytes_available(&bs) == len); // Peek doesn't consume data
+    peek_buffer[peeked] = '\0';
+    printk("Successfully peeked %u bytes: '%s'\n", peeked, peek_buffer);
+
     // Test reading
-    uint8_t buffer[20];
-    size_t read = bs_read(&bs, buffer, sizeof(buffer));
+    uint8_t read_buffer[20];
+    size_t read = bs_read(&bs, read_buffer, sizeof(read_buffer));
     assert(read == len);
-    assert(memcmp(buffer, test_data, len) == 0);
-    buffer[read] = '\0';
-    printk("Successfully read %u bytes: '%s'\n", read, buffer);
+    assert(memcmp(read_buffer, test_data, len) == 0);
+    assert(bs_bytes_available(&bs) == 0);
+    assert(bs_bytes_popped(&bs) == len);
+    read_buffer[read] = '\0';
+    printk("Successfully read %u bytes: '%s'\n", read, read_buffer);
+
+    // Test end of input
+    assert(!bs_finished(&bs)); // Not finished yet
+    bs_end_input(&bs);
+    assert(bs_finished(&bs)); // Now finished (EOF + no data)
+    printk("Successfully tested end of input\n");
+
+    // Test remaining capacity
+    assert(bs_remaining_capacity(&bs) == BS_CAPACITY);
+    printk("Remaining capacity: %u\n", BS_CAPACITY);
 
     printk("Bytestream test passed!\n");
     printk("--------------------------------\n");
 }
 
-// // Test sender functionality
-// static void test_sender(void) {
-//     printk("--------------------------------\n");
-//     printk("Starting sender test...\n");
-//     struct sender *s = sender_init(0x1, 0x2, 1000);
-//     assert(s != NULL);
-//     printk("Sender initialized with src=0x1, dst=0x2\n");
+// Test sender functionality
+static void test_sender(void) {
+    printk("--------------------------------\n");
+    printk("Starting sender test...\n");
+    
+    // Initialize mock NRF
+    mock_nrf_t mock_nrf = mock_nrf_init();
+    
+    // Initialize sender
+    sender_t sender = sender_init((nrf_t *)&mock_nrf, mock_transmit);
+    printk("Sender initialized\n");
 
-//     // Write some test data
-//     const char *test_data = "This is a test message that will be split into multiple segments";
-//     size_t len = strlen(test_data);
-//     size_t written = bytestream_write(s->outgoing, (uint8_t*)test_data, len);
-//     assert(written == len);
-//     printk("Wrote %u bytes to sender: '%s'\n", written, test_data);
+    // Write test data to the sender's bytestream
+    const char *test_data = "This is a test message that will be split into multiple segments";
+    size_t len = strlen(test_data);
+    size_t written = bs_write(&sender.reader, (uint8_t*)test_data, len);
+    assert(written == len);
+    printk("Wrote %u bytes to sender's bytestream: '%s'\n", written, test_data);
 
-//     // Fill the window with segments
-//     int segments = sender_fill_window(s);
-//     assert(segments > 0);
-//     assert(s->segments_in_flight == (size_t)segments);
-//     printk("Created %d segments to fill window\n", segments);
+    // Push data to be sent
+    uint32_t remote_addr = 0x12345678; // Mock address
+    printk("Pushing data to send (should trigger segment creation)...\n");
+    sender_push(&sender, remote_addr);
+    
+    // Verify that data was pushed
+    assert(sender.next_seqno > 0);
+    assert(!rtq_empty(&sender.pending_segs));
+    printk("Segments created. Next seqno: %u, Window size: %u\n", 
+           sender.next_seqno, sender.window_size);
 
-//     // Test getting next segment
-//     const struct unacked_segment *seg = sender_next_segment(s);
-//     assert(seg != NULL);
-//     assert(seg->seqno == 0);  // First segment
-//     assert(seg->len > 0 && seg->len <= RCP_MAX_PAYLOAD);
-//     printk("Got next segment: seqno=%u, len=%u\n", seg->seqno, seg->len);
+    // Create mock ACK from receiver
+    receiver_segment_t reply = {0};
+    reply.is_ack = true;
+    reply.ackno = sender.next_seqno; // ACK everything sent so far
+    reply.window_size = 64; // Increase window size
+    
+    // Process the ACK
+    printk("Processing ACK with ackno=%u\n", reply.ackno);
+    sender_process_reply(&sender, &reply);
+    
+    // Verify ACK was processed
+    assert(sender.acked_seqno == reply.ackno);
+    assert(sender.window_size == reply.window_size);
+    assert(rtq_empty(&sender.pending_segs)); // All segments should be ACKed
+    printk("ACK processed. Acked seqno: %u, Window size: %u\n", 
+           sender.acked_seqno, sender.window_size);
+    
+    // Test retransmission mechanism
+    printk("Testing retransmission mechanism...\n");
+    
+    // Write more data and push without ACKing
+    const char *more_data = "More data for retransmission test";
+    written = bs_write(&sender.reader, (uint8_t*)more_data, strlen(more_data));
+    sender_push(&sender, remote_addr);
+    
+    // Force retransmission time
+    sender.rto_time_us = timer_get_usec() - 1000; // Set RTO time to past
+    
+    // Check retransmits
+    printk("Checking for retransmits (should trigger retransmission)...\n");
+    sender_check_retransmits(&sender);
+    
+    // Verify retransmission counter increased
+    assert(sender.n_retransmits > 0);
+    printk("Retransmission counter: %u\n", sender.n_retransmits);
+    
+    // End the stream and verify FIN is sent
+    printk("Ending input stream and pushing final data...\n");
+    bs_end_input(&sender.reader);
+    sender_push(&sender, remote_addr);
+    
+    // Check that we have segments pending with FIN
+    assert(!rtq_empty(&sender.pending_segs));
+    printk("Stream ended. Final segments pushed.\n");
 
-//     // Mark segment as sent
-//     sender_segment_sent(s, seg, 1000);  // 1000ms timestamp
-//     printk("Marked segment as sent at t=1000ms\n");
-
-//     // Create an ACK
-//     struct rcp_header ack = {0};
-//     ack.ackno = 0;  // ACK first segment
-//     ack.window = SENDER_WINDOW_SIZE;
-
-//     // Process ACK
-//     int acked = sender_process_ack(s, &ack);
-//     assert(acked == 1);
-//     assert(s->segments_in_flight == (size_t)(segments - 1));
-//     printk("Processed ACK: %d segments acknowledged\n", acked);
-
-//     printk("Sender test passed!\n");
-//     printk("--------------------------------\n");
-// }
+    printk("Sender test passed!\n");
+    printk("--------------------------------\n");
+}
 
 // // Test receiver functionality
 // static void test_receiver(void) {
@@ -290,7 +360,7 @@ void notmain(void) {
     printk("Memory initialized\n");
 
     test_bytestream();
-    // test_sender();
+    test_sender();
     // test_receiver();
     // test_out_of_order();
     // test_reassembler();
