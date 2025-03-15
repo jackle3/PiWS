@@ -43,17 +43,17 @@ typedef struct sender {
  * Initialize the sender with default state
  */
 sender_t sender_init(nrf_t *nrf, void (*transmit)(sender_segment_t *segment)) {
-    sender_t sender;
-    sender.nrf = nrf;
-    sender.reader = bs_init();
-    sender.next_seqno = 0;
-    sender.acked_seqno = 0;
-    sender.window_size = INITIAL_WINDOW_SIZE;
-
-    sender.initial_RTO_us = RTO_INITIAL_US;
-    sender.rto_time_us = 0;
-    sender.n_retransmits = 0;
-    sender.transmit = transmit;
+    sender_t sender = {
+        .nrf = nrf,
+        .reader = bs_init(),
+        .next_seqno = 0,
+        .acked_seqno = 0,
+        .window_size = INITIAL_WINDOW_SIZE,
+        .initial_RTO_us = RTO_INITIAL_US,
+        .rto_time_us = 0,
+        .n_retransmits = 0,
+        .transmit = transmit,
+    };
     return sender;
 }
 
@@ -64,10 +64,11 @@ sender_t sender_init(nrf_t *nrf, void (*transmit)(sender_segment_t *segment)) {
  * @return The created segment
  */
 sender_segment_t make_segment(sender_t *sender, size_t len) {
-    sender_segment_t seg;
-    seg.len = 0;
-    seg.seqno = sender->next_seqno;
-    seg.is_syn = (seg.seqno == 0);
+    sender_segment_t seg = {
+        .len = 0,
+        .seqno = sender->next_seqno,
+        .is_syn = (seg.seqno == 0),
+    };
 
     size_t bytes_to_send = MIN(RCP_MAX_PAYLOAD, len);
     if (bytes_to_send > 0) {
