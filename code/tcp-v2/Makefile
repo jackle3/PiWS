@@ -1,24 +1,27 @@
-PROGS += tests/test-bytestream.c
-PROGS += tests/test-sender.c
-PROGS += tests/test-receiver.c
+# PROGS += tests/test-bytestream.c
+# PROGS += tests/test-sender.c
+# PROGS += tests/test-receiver.c
+PROGS += tests/test-rcp.c
 
 LIBS += $(CS140E_PITCP)/lib/libgcc.a
 
 # Common source files
-COMMON_SRC := bytestream.h tcp.h receiver.h sender.h
-
-COMMON_SRC += $(CS140E_PITCP)/code/rcp/rcp-header.c $(CS140E_PITCP)/code/rcp/rcp-datagram.c
+COMMON_SRC += bytestream.h
+COMMON_SRC += rcp-datagram.h
+COMMON_SRC += rcp-header.h
+COMMON_SRC += receiver.h
+COMMON_SRC += router.h
+COMMON_SRC += sender.h
+COMMON_SRC += tcp.h
+COMMON_SRC += types.h
+COMMON_SRC += util.h
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-driver.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-hw-support.c
 COMMON_SRC += $(CS140E_PITCP)/code/nrf/nrf-public.c
 
-COMMON_SRC += $(CS140E_PITCP)/code/uart/uart-to-tcp.c
-CFLAGS += -I$(CS140E_PITCP)/code/uart
-
-# Add include paths for NRF
+# Flags for include paths
 CFLAGS += -I$(CS140E_PITCP)/code/nrf
 CFLAGS += -I$(CS140E_PITCP)/code/nrf/tests
-CFLAGS += -I$(CS140E_PITCP)/code/rcp
 
 
 STAFF_OBJS += $(CS140E_PITCP)/libpi/staff-objs/staff-hw-spi.o

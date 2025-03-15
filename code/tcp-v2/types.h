@@ -20,23 +20,3 @@ typedef struct sender_segment {
     size_t len;   // Length of the payload
     uint8_t payload[RCP_MAX_PAYLOAD];
 } sender_segment_t;
-
-sender_segment_t rcp_to_sender_segment(rcp_datagram_t *datagram) {
-    sender_segment_t seg = {
-        .seqno = datagram->header.seqno,
-        .is_syn = rcp_has_flag(&datagram->header, RCP_FLAG_SYN),
-        .is_fin = rcp_has_flag(&datagram->header, RCP_FLAG_FIN),
-        .len = datagram->header.payload_len,
-    };
-    memcpy(seg.payload, datagram->payload, seg.len);
-    return seg;
-}
-
-receiver_segment_t rcp_to_receiver_segment(rcp_datagram_t *datagram) {
-    receiver_segment_t seg = {
-        .ackno = datagram->header.ackno,
-        .is_ack = rcp_has_flag(&datagram->header, RCP_FLAG_ACK),
-        .window_size = datagram->header.window,
-    };
-    return seg;
-}

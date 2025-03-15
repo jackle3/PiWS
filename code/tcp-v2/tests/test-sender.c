@@ -102,7 +102,7 @@ static void test_sender(void) {
            bs_bytes_popped(&sender.reader));
 
     // Force retransmission time
-    sender.rto_time_us = timer_get_usec() - S_TO_US(5);  // Set RTO time to past
+    sender.rto_time_us = timer_get_usec() - S_TO_US(10);  // Set RTO time to past
 
     // Check retransmits
     printk("Checking for retransmits (should trigger retransmission)...\n");
@@ -111,6 +111,12 @@ static void test_sender(void) {
     // Verify retransmission counter increased
     assert(sender.n_retransmits > 0);
     printk("Retransmission counter: %u\n", sender.n_retransmits);
+
+    printk("Checking that an RTO that doesn't trigger a retransmission doesn't trigger a retransmission...\n");
+    sender.rto_time_us = timer_get_usec() + S_TO_US(10);  // Set RTO time to future
+    sender.n_retransmits = 0;
+    sender_check_retransmits(&sender);
+    assert(sender.n_retransmits == 0);
 
     // Reset segment tracking before testing FIN behavior
     segment_count = 0;
